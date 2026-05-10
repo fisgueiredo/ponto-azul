@@ -18,13 +18,11 @@ function applyTheme() {
     return;
   }
   try {
-    const t = (localStorage.getItem(KEY) as ThemeChoice | null) ?? "system";
-    const dark =
-      t === "dark" ||
-      (t === "system" &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-    if (dark) document.documentElement.setAttribute("data-theme", "dark");
-    else document.documentElement.removeAttribute("data-theme");
+    const t = localStorage.getItem(KEY);
+    const root = document.documentElement;
+    if (t === "dark") root.setAttribute("data-theme", "dark");
+    else if (t === "light") root.setAttribute("data-theme", "light");
+    else root.removeAttribute("data-theme");
   } catch {
     // ignore
   }
