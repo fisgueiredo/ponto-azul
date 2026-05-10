@@ -85,6 +85,11 @@ export default function PlaceDetailPage() {
       setTimeout(() => setToast(null), 2500);
       return;
     }
+    try {
+      window.localStorage.removeItem("pa:places:v1");
+    } catch {
+      // ignore
+    }
     router.replace("/");
   };
 

@@ -7,6 +7,8 @@ import { createPinElement } from "./PinElement";
 
 type LatLng = { lat: number; lng: number };
 
+type Padding = { top?: number; bottom?: number; left?: number; right?: number };
+
 type Props = {
   places?: Place[];
   userPosition?: LatLng | null;
@@ -20,6 +22,7 @@ type Props = {
   onPinDrag?: (pos: LatLng) => void;
   centerPin?: boolean;
   onCenterChange?: (pos: LatLng) => void;
+  viewportPadding?: Padding;
   highlightId?: string | null;
   className?: string;
   style?: React.CSSProperties;
@@ -41,6 +44,7 @@ function MapViewImpl({
   onPinDrag,
   centerPin = false,
   onCenterChange,
+  viewportPadding,
   highlightId = null,
   className,
   style,
@@ -143,6 +147,17 @@ function MapViewImpl({
     map.flyTo({ center: [flyTo.lng, flyTo.lat], zoom, duration: 800 });
   }, [flyTo, zoom]);
 
+  const padTop = viewportPadding?.top ?? 0;
+  const padBottom = viewportPadding?.bottom ?? 0;
+  const padLeft = viewportPadding?.left ?? 0;
+  const padRight = viewportPadding?.right ?? 0;
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.setPadding({ top: padTop, bottom: padBottom, left: padLeft, right: padRight });
+  }, [padTop, padBottom, padLeft, padRight]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -189,8 +204,8 @@ function MapViewImpl({
         <div
           style={{
             position: "absolute",
-            top: "50%",
-            left: "50%",
+            top: `calc(50% + ${(padTop - padBottom) / 2}px)`,
+            left: `calc(50% + ${(padLeft - padRight) / 2}px)`,
             transform: "translate(-50%, -100%)",
             pointerEvents: "none",
             zIndex: 5,

@@ -20,6 +20,7 @@ type Props = {
   onHeightChange?: (h: number) => void;
   onSnapChange?: (s: Snap) => void;
   header?: React.ReactNode;
+  footer?: React.ReactNode;
   children: React.ReactNode;
 };
 
@@ -28,6 +29,7 @@ export default function BottomSheet({
   onHeightChange,
   onSnapChange,
   header,
+  footer,
   children,
 }: Props) {
   const [snap, setSnap] = useState<Snap>(defaultSnap);
@@ -151,12 +153,28 @@ export default function BottomSheet({
         style={{
           flex: 1,
           overflowY: snap === "max" ? "auto" : "hidden",
-          padding:
-            "0 16px calc(env(safe-area-inset-bottom, 0px) + 24px)",
+          padding: footer
+            ? "0 16px 0"
+            : "0 16px calc(env(safe-area-inset-bottom, 0px) + 24px)",
         }}
       >
         {children}
       </div>
+      {footer && (
+        <div
+          style={{
+            padding:
+              "12px 16px calc(env(safe-area-inset-bottom, 0px) + 16px)",
+            background: "var(--card-glass)",
+            backdropFilter: "blur(18px) saturate(160%)",
+            WebkitBackdropFilter: "blur(18px) saturate(160%)",
+            borderTop: "0.5px solid var(--border)",
+            flexShrink: 0,
+          }}
+        >
+          {footer}
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { useReverseGeocode } from "@/lib/hooks/useReverseGeocode";
 import { IClose, ICheck, IMove, IMapPin } from "@/components/Icons";
+import BottomSheet from "@/components/BottomSheet";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -33,6 +34,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sheetHeight, setSheetHeight] = useState(280);
   const { city } = useReverseGeocode(pos?.lat ?? null, pos?.lng ?? null);
 
   useEffect(() => {
@@ -69,6 +71,11 @@ export default function PlaceEditor({ mode, initial }: Props) {
         return;
       }
       setDone(true);
+      try {
+        window.localStorage.removeItem("pa:places:v1");
+      } catch {
+        // ignore
+      }
       setTimeout(() => router.replace(`/lugar/${data}`), 700);
     } else if (mode === "edit" && initial) {
       const { error } = await supabase!.rpc("update_place", {
@@ -84,6 +91,11 @@ export default function PlaceEditor({ mode, initial }: Props) {
         return;
       }
       setDone(true);
+      try {
+        window.localStorage.removeItem("pa:places:v1");
+      } catch {
+        // ignore
+      }
       setTimeout(() => router.replace(`/lugar/${initial.id}`), 600);
     }
   };
@@ -105,174 +117,218 @@ export default function PlaceEditor({ mode, initial }: Props) {
         color: "var(--text)",
       }}
     >
+      {pos && (
+        <MapView
+          initialCenter={pos}
+          zoom={16}
+          interactive
+          centerPin
+          onCenterChange={(next) => setPos(next)}
+          viewportPadding={{ bottom: sheetHeight }}
+        />
+      )}
+
       <div
         style={{
           position: "absolute",
-          top: 0,
+          top: "calc(env(safe-area-inset-top, 0px) + 16px)",
           left: 0,
           right: 0,
-          height: 460,
-          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 16px",
+          zIndex: 20,
         }}
       >
-        {pos && (
-          <MapView
-            initialCenter={pos}
-            zoom={16}
-            interactive
-            centerPin
-            onCenterChange={(next) => setPos(next)}
-          />
-        )}
-
-        <div
+        <button
+          aria-label="Cancelar"
+          onClick={() => router.back()}
           style={{
-            position: "absolute",
-            top: "calc(env(safe-area-inset-top, 0px) + 16px)",
-            left: 0,
-            right: 0,
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            background: "var(--card-glass)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "0.5px solid var(--border)",
+            cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 16px",
-            zIndex: 20,
+            justifyContent: "center",
+            color: "var(--text)",
+            boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
           }}
         >
-          <button
-            aria-label="Cancelar"
-            onClick={() => router.back()}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              background: "var(--card-glass)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              border: "0.5px solid var(--border)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--text)",
-              boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
-            }}
-          >
-            <IClose size={20} />
-          </button>
-          <div
-            style={{
-              padding: "8px 14px",
-              borderRadius: 999,
-              background: "var(--card-glass)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              border: "0.5px solid var(--border)",
-              fontSize: 13,
-              color: "var(--text)",
-              fontWeight: 600,
-              letterSpacing: -0.1,
-              boxShadow: "0 4px 12px rgba(20,30,50,0.08)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {headerLabel}
-          </div>
-          <div style={{ width: 40 }} />
-        </div>
-
+          <IClose size={20} />
+        </button>
         <div
           style={{
-            position: "absolute",
-            top: "calc(env(safe-area-inset-top, 0px) + 70px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
             padding: "8px 14px",
             borderRadius: 999,
             background: "var(--card-glass)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
             border: "0.5px solid var(--border)",
-            fontSize: 12,
+            fontSize: 13,
             color: "var(--text)",
-            fontWeight: 500,
-            whiteSpace: "nowrap",
+            fontWeight: 600,
+            letterSpacing: -0.1,
             boxShadow: "0 4px 12px rgba(20,30,50,0.08)",
-            animation: "fadeUp 0.5s ease-out",
-            zIndex: 20,
+            whiteSpace: "nowrap",
           }}
         >
-          <IMove size={13} color="var(--muted)" />
-          {pos
-            ? "Mexe o mapa para ajustar"
-            : geo.loading
-              ? "A obter localização…"
-              : "Define localização"}
+          {headerLabel}
         </div>
+        <div style={{ width: 40 }} />
       </div>
 
       <div
-        className="no-scrollbar"
         style={{
           position: "absolute",
-          left: 0,
-          right: 0,
-          top: 440,
-          bottom: 0,
-          background: "var(--bg)",
-          borderTopLeftRadius: 32,
-          borderTopRightRadius: 32,
-          boxShadow: "0 -8px 24px rgba(20,30,50,0.08)",
-          padding:
-            "12px 20px calc(env(safe-area-inset-bottom, 0px) + 110px)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-          overflowY: "auto",
+          top: "calc(env(safe-area-inset-top, 0px) + 70px)",
+          left: "50%",
+          transform: "translateX(-50%)",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 14px",
+          borderRadius: 999,
+          background: "var(--card-glass)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "0.5px solid var(--border)",
+          fontSize: 12,
+          color: "var(--text)",
+          fontWeight: 500,
+          whiteSpace: "nowrap",
+          boxShadow: "0 4px 12px rgba(20,30,50,0.08)",
+          animation: "fadeUp 0.5s ease-out",
+          zIndex: 20,
         }}
       >
-        <div
-          style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}
-        >
-          <div
-            style={{
-              width: 40,
-              height: 5,
-              borderRadius: 3,
-              background: "rgba(0,0,0,0.18)",
-            }}
-          />
-        </div>
+        <IMove size={13} color="var(--muted)" />
+        {pos
+          ? "Mexe o mapa para ajustar"
+          : geo.loading
+            ? "A obter localização…"
+            : "Define localização"}
+      </div>
 
-        <div>
-          <div
-            style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5 }}
-          >
-            {mode === "add" ? "Detalhes do lugar" : "Alterar detalhes"}
+      <BottomSheet
+        defaultSnap="mid"
+        onHeightChange={setSheetHeight}
+        header={
+          <div>
+            <div
+              style={{
+                fontSize: 17,
+                fontWeight: 600,
+                color: "var(--text)",
+                letterSpacing: -0.3,
+              }}
+            >
+              {mode === "add" ? "Detalhes do lugar" : "Alterar detalhes"}
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--muted)",
+                marginTop: 2,
+                fontFamily: "var(--font-geist-mono)",
+                letterSpacing: -0.1,
+              }}
+            >
+              dá um nome curto e claro
+            </div>
           </div>
-          <div
+        }
+        footer={
+          <button
+            onClick={onSubmit}
+            disabled={!valid}
             style={{
-              fontSize: 13,
-              color: "var(--muted)",
-              marginTop: 4,
-              letterSpacing: -0.1,
-            }}
-          >
-            Dá um nome curto e claro para reconheceres depois.
-          </div>
-        </div>
-
-        <div>
-          <div
-            style={{
+              width: "100%",
+              padding: 16,
+              borderRadius: 18,
+              background: done
+                ? "#0E8E45"
+                : valid
+                  ? "#00AF54"
+                  : "rgba(20,30,40,0.10)",
+              border: "none",
+              color: valid || done ? "#fff" : "var(--muted)",
+              fontSize: 16,
+              fontWeight: 600,
+              letterSpacing: -0.2,
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 6,
+              justifyContent: "center",
+              gap: 10,
+              cursor: valid ? "pointer" : "not-allowed",
+              boxShadow: valid ? "0 10px 24px rgba(0,175,84,0.35)" : "none",
+              transition: "all 0.25s ease",
             }}
           >
+            <ICheck
+              size={20}
+              color={valid || done ? "#fff" : "var(--muted)"}
+              strokeWidth={2.4}
+            />
+            {done ? doneLabel : submitting ? "A guardar…" : submitLabel}
+          </button>
+        }
+      >
+        <div style={{ paddingTop: 8 }}>
+          <div style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <label
+                style={{
+                  fontSize: 12,
+                  color: "var(--muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  fontWeight: 500,
+                }}
+              >
+                Título <span style={{ color: "#C2393C" }}>·</span>
+              </label>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "var(--muted)",
+                  fontFamily: "var(--font-geist-mono)",
+                }}
+              >
+                {title.length}/80
+              </span>
+            </div>
+            <input
+              type="text"
+              placeholder="Ex.: Praça do Município, entrada norte"
+              value={title}
+              onChange={(e) => setTitle(e.target.value.slice(0, 80))}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                borderRadius: 14,
+                background: "rgba(20,30,40,0.04)",
+                border: "0.5px solid var(--border)",
+                fontSize: 15,
+                letterSpacing: -0.1,
+                outline: "none",
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
             <label
               style={{
                 fontSize: 12,
@@ -280,158 +336,77 @@ export default function PlaceEditor({ mode, initial }: Props) {
                 textTransform: "uppercase",
                 letterSpacing: 0.5,
                 fontWeight: 500,
+                display: "block",
+                marginBottom: 6,
               }}
             >
-              Título <span style={{ color: "#C2393C" }}>·</span>
+              Descrição{" "}
+              <span
+                style={{
+                  textTransform: "none",
+                  letterSpacing: 0,
+                  color: "var(--muted)",
+                }}
+              >
+                (opcional)
+              </span>
             </label>
-            <span
+            <textarea
+              placeholder="Detalhes úteis: piso, rebaixe de passeio, horário, sinalização…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value.slice(0, 400))}
+              rows={3}
               style={{
-                fontSize: 11,
-                color: "var(--muted)",
-                fontFamily: "var(--font-geist-mono)",
+                width: "100%",
+                padding: "14px 16px",
+                borderRadius: 14,
+                background: "rgba(20,30,40,0.04)",
+                border: "0.5px solid var(--border)",
+                fontSize: 14,
+                letterSpacing: -0.1,
+                outline: "none",
+                resize: "none",
+                lineHeight: 1.4,
               }}
-            >
-              {title.length}/80
-            </span>
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Ex.: Praça do Município, entrada norte"
-            value={title}
-            onChange={(e) => setTitle(e.target.value.slice(0, 80))}
-            style={{
-              width: "100%",
-              padding: "14px 16px",
-              borderRadius: 14,
-              background: "rgba(20,30,40,0.04)",
-              border: "0.5px solid var(--border)",
-              fontSize: 15,
-              letterSpacing: -0.1,
-              outline: "none",
-            }}
-          />
-        </div>
 
-        <div>
-          <label
-            style={{
-              fontSize: 12,
-              color: "var(--muted)",
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              fontWeight: 500,
-              display: "block",
-              marginBottom: 6,
-            }}
-          >
-            Descrição{" "}
-            <span
+          {city && (
+            <div
               style={{
-                textTransform: "none",
-                letterSpacing: 0,
-                color: "var(--muted)",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 12px",
+                borderRadius: 12,
+                background: "rgba(39,116,174,0.06)",
+                border: "0.5px solid rgba(39,116,174,0.18)",
+                marginBottom: 14,
               }}
             >
-              (opcional)
-            </span>
-          </label>
-          <textarea
-            placeholder="Detalhes úteis: piso, rebaixe de passeio, horário, sinalização…"
-            value={description}
-            onChange={(e) => setDescription(e.target.value.slice(0, 400))}
-            rows={3}
-            style={{
-              width: "100%",
-              padding: "14px 16px",
-              borderRadius: 14,
-              background: "rgba(20,30,40,0.04)",
-              border: "0.5px solid var(--border)",
-              fontSize: 14,
-              letterSpacing: -0.1,
-              outline: "none",
-              resize: "none",
-              lineHeight: 1.4,
-            }}
-          />
-        </div>
-
-        {city && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px 12px",
-              borderRadius: 12,
-              background: "rgba(39,116,174,0.06)",
-              border: "0.5px solid rgba(39,116,174,0.18)",
-            }}
-          >
-            <IMapPin size={16} color="#2774AE" />
-            <div style={{ flex: 1, fontSize: 13, letterSpacing: -0.1 }}>
-              <span style={{ fontWeight: 500 }}>{city}</span>
+              <IMapPin size={16} color="#2774AE" />
+              <div style={{ flex: 1, fontSize: 13, letterSpacing: -0.1 }}>
+                <span style={{ fontWeight: 500 }}>{city}</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {error && (
-          <div
-            style={{
-              padding: "10px 12px",
-              borderRadius: 12,
-              background: "rgba(194,57,60,0.08)",
-              color: "#C2393C",
-              fontSize: 13,
-            }}
-          >
-            {error}
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          left: 16,
-          right: 16,
-          bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
-          zIndex: 30,
-        }}
-      >
-        <button
-          onClick={onSubmit}
-          disabled={!valid}
-          style={{
-            width: "100%",
-            padding: 16,
-            borderRadius: 18,
-            background: done
-              ? "#0E8E45"
-              : valid
-                ? "#00AF54"
-                : "rgba(20,30,40,0.10)",
-            border: "none",
-            color: valid || done ? "#fff" : "var(--muted)",
-            fontSize: 16,
-            fontWeight: 600,
-            letterSpacing: -0.2,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            cursor: valid ? "pointer" : "not-allowed",
-            boxShadow: valid ? "0 10px 24px rgba(0,175,84,0.35)" : "none",
-            transition: "all 0.25s ease",
-          }}
-        >
-          <ICheck
-            size={20}
-            color={valid || done ? "#fff" : "var(--muted)"}
-            strokeWidth={2.4}
-          />
-          {done ? doneLabel : submitting ? "A guardar…" : submitLabel}
-        </button>
-      </div>
+          {error && (
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                background: "rgba(194,57,60,0.08)",
+                color: "#C2393C",
+                fontSize: 13,
+                marginBottom: 14,
+              }}
+            >
+              {error}
+            </div>
+          )}
+        </div>
+      </BottomSheet>
     </main>
   );
 }
