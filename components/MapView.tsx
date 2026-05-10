@@ -206,10 +206,39 @@ function MapViewImpl({
     let pressTimer: ReturnType<typeof setTimeout> | null = null;
     let pressOrigin: { x: number; y: number; lat: number; lng: number } | null =
       null;
+    let pressPulseEl: HTMLDivElement | null = null;
+    const removePulse = () => {
+      if (pressPulseEl && pressPulseEl.parentNode) {
+        pressPulseEl.parentNode.removeChild(pressPulseEl);
+      }
+      pressPulseEl = null;
+    };
     const cancelPress = () => {
       if (pressTimer) clearTimeout(pressTimer);
       pressTimer = null;
       pressOrigin = null;
+      removePulse();
+    };
+    const spawnPulse = (x: number, y: number) => {
+      const c = containerRef.current;
+      if (!c) return;
+      removePulse();
+      const el = document.createElement("div");
+      el.style.cssText = `
+        position: absolute;
+        left: ${x}px;
+        top: ${y}px;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(39,116,174,0.35) 0%, rgba(39,116,174,0) 70%);
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        z-index: 5;
+        animation: longPressPulse 500ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      `;
+      c.appendChild(el);
+      pressPulseEl = el;
     };
     const handleTouchStart = (e: maplibregl.MapTouchEvent) => {
       if (e.originalEvent.touches.length !== 1) {
@@ -222,6 +251,7 @@ function MapViewImpl({
         lat: e.lngLat.lat,
         lng: e.lngLat.lng,
       };
+      spawnPulse(e.point.x, e.point.y);
       pressTimer = setTimeout(() => {
         if (pressOrigin) {
           if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -237,6 +267,7 @@ function MapViewImpl({
           });
           pressOrigin = null;
         }
+        removePulse();
       }, 500);
     };
     const handleTouchMove = (e: maplibregl.MapTouchEvent) => {

@@ -392,6 +392,8 @@ export default function AddPlaceSheet({
                 <IMinus size={16} />
               </button>
               <span
+                key={spots}
+                aria-live="polite"
                 style={{
                   minWidth: 28,
                   textAlign: "center",
@@ -399,6 +401,8 @@ export default function AddPlaceSheet({
                   fontSize: 17,
                   fontWeight: 600,
                   letterSpacing: -0.2,
+                  display: "inline-block",
+                  animation: "popIn var(--dur-base) var(--ease-pop)",
                 }}
               >
                 {spots}

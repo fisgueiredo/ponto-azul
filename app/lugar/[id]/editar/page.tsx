@@ -9,7 +9,7 @@ export default function EditarLugarPage() {
   const { place, loading, error } = usePlace(params?.id);
 
   if (loading) {
-    return <Centered text="A carregar…" />;
+    return <Centered text="A carregar detalhes…" />;
   }
   if (error || !place) {
     return (

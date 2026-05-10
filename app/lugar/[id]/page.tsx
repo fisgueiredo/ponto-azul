@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
@@ -32,12 +32,52 @@ export default function PlaceDetailPage() {
   const userPosition =
     geo.lat != null && geo.lng != null ? { lat: geo.lat, lng: geo.lng } : null;
   const { address } = useReverseGeocode(place?.lat ?? null, place?.lng ?? null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; phase: "in" | "out" } | null>(
+    null
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
   const [pinnedOverride, setPinnedOverride] = useState<boolean | null>(null);
   const [pinning, setPinning] = useState(false);
+  const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
+  const deleteOpenerRef = useRef<HTMLElement | null>(null);
+  const toastTimersRef = useRef<{ out?: ReturnType<typeof setTimeout>; clear?: ReturnType<typeof setTimeout> }>({});
+
+  const showToast = (message: string, durationMs = 1800) => {
+    if (toastTimersRef.current.out) clearTimeout(toastTimersRef.current.out);
+    if (toastTimersRef.current.clear) clearTimeout(toastTimersRef.current.clear);
+    setToast({ message, phase: "in" });
+    toastTimersRef.current.out = setTimeout(() => {
+      setToast((t) => (t ? { ...t, phase: "out" } : t));
+    }, durationMs);
+    toastTimersRef.current.clear = setTimeout(() => {
+      setToast(null);
+    }, durationMs + 250);
+  };
+
+  useEffect(() => {
+    const timers = toastTimersRef.current;
+    return () => {
+      if (timers.out) clearTimeout(timers.out);
+      if (timers.clear) clearTimeout(timers.clear);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!confirmDelete) return;
+    cancelDeleteRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !deleting) {
+        setConfirmDelete(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      deleteOpenerRef.current?.focus();
+    };
+  }, [confirmDelete, deleting]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -63,7 +103,7 @@ export default function PlaceDetailPage() {
   );
 
   if (loading) {
-    return <CenteredMessage text="A carregar…" />;
+    return <CenteredMessage text="A carregar lugar…" />;
   }
   if (error || !place) {
     return (
@@ -97,8 +137,7 @@ export default function PlaceDetailPage() {
       }
       if (nav.clipboard?.writeText) {
         await nav.clipboard.writeText(shareData.url);
-        setToast("Link copiado");
-        setTimeout(() => setToast(null), 2000);
+        showToast("Link copiado");
       }
     } catch {
       // user cancelled — ignore
@@ -125,8 +164,7 @@ export default function PlaceDetailPage() {
     } catch (e: unknown) {
       setPinnedOverride(!next);
       const msg = e instanceof Error ? e.message : "Erro ao guardar";
-      setToast(msg);
-      setTimeout(() => setToast(null), 2200);
+      showToast(msg, 2200);
     } finally {
       setPinning(false);
     }
@@ -140,10 +178,9 @@ export default function PlaceDetailPage() {
     // SECURITY DEFINER `delete_place` RPC. Direct DELETE matches add/update reality.
     const { error } = await supabase.from("places").delete().eq("id", place.id);
     if (error) {
-      setToast(`Erro ao eliminar: ${error.message}`);
+      showToast(`Erro ao eliminar: ${error.message}`, 2500);
       setDeleting(false);
       setConfirmDelete(false);
-      setTimeout(() => setToast(null), 2500);
       return;
     }
     invalidatePlacesCache();
@@ -213,7 +250,10 @@ export default function PlaceDetailPage() {
         </button>
         <button
           aria-label="Eliminar"
-          onClick={() => setConfirmDelete(true)}
+          onClick={(e) => {
+            deleteOpenerRef.current = e.currentTarget;
+            setConfirmDelete(true);
+          }}
           style={iconBtn("danger")}
         >
           <ITrash size={18} />
@@ -258,41 +298,39 @@ export default function PlaceDetailPage() {
           >
             {distance && (
               <span
+                className="badge-info"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
                   padding: "5px 10px",
                   borderRadius: 999,
-                  background: "rgba(39,116,174,0.10)",
-                  color: "#2774AE",
                   fontSize: 11,
                   fontWeight: 600,
                   letterSpacing: 0.4,
                   textTransform: "uppercase",
                 }}
               >
-                <IMapPin size={12} color="#2774AE" strokeWidth={2.2} />
+                <IMapPin size={12} color="currentColor" strokeWidth={2.2} />
                 {distance} de si
               </span>
             )}
             {place.spots > 0 && (
               <span
+                className="badge-success"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
                   padding: "5px 10px",
                   borderRadius: 999,
-                  background: "rgba(0,175,84,0.10)",
-                  color: "#0E8E45",
                   fontSize: 11,
                   fontWeight: 600,
                   letterSpacing: 0.4,
                   textTransform: "uppercase",
                 }}
               >
-                <ICar size={12} color="#0E8E45" strokeWidth={2.2} />
+                <ICar size={12} color="currentColor" strokeWidth={2.2} />
                 {place.spots} {place.spots === 1 ? "lugar" : "lugares"}
               </span>
             )}
@@ -372,12 +410,11 @@ export default function PlaceDetailPage() {
             href={navWazeUrl}
             target="_blank"
             rel="noopener noreferrer"
+            className="btn-waze"
             style={{
               flex: 1,
               padding: "16px 12px",
               borderRadius: 18,
-              background: "#33CCFF",
-              color: "#0B2940",
               fontSize: 15,
               fontWeight: 700,
               letterSpacing: -0.2,
@@ -388,7 +425,7 @@ export default function PlaceDetailPage() {
               textDecoration: "none",
             }}
           >
-            <INavigate size={18} color="#0B2940" strokeWidth={2} />
+            <INavigate size={18} color="currentColor" strokeWidth={2} />
             Waze
           </a>
         </div>
@@ -396,6 +433,9 @@ export default function PlaceDetailPage() {
 
       {toast && (
         <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
           style={{
             position: "fixed",
             bottom:
@@ -407,25 +447,32 @@ export default function PlaceDetailPage() {
             padding: "10px 16px",
             borderRadius: 999,
             fontSize: 13,
-            zIndex: 30,
-            animation: "fadeUp 0.3s ease-out",
+            zIndex: 40,
+            animation:
+              toast.phase === "in"
+                ? "fadeUp var(--dur-slow) var(--ease-out)"
+                : "fadeOut 0.25s var(--ease-out) forwards",
           }}
         >
-          {toast}
+          {toast.message}
         </div>
       )}
 
       {confirmDelete && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-title"
+          aria-describedby="delete-desc"
           style={{
             position: "fixed",
             inset: 0,
             background: "rgba(0,0,0,0.45)",
-            zIndex: 50,
+            zIndex: 30,
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            animation: "overlayFade 0.22s ease-out both",
+            animation: "overlayFade 0.22s var(--ease-out) both",
           }}
           onClick={() => !deleting && setConfirmDelete(false)}
         >
@@ -440,14 +487,18 @@ export default function PlaceDetailPage() {
               padding:
                 "24px 20px calc(env(safe-area-inset-bottom, 0px) + 24px)",
               animation:
-                "sheetSlideUp 0.36s cubic-bezier(0.32, 0.72, 0, 1) both",
-              boxShadow: "0 -12px 40px rgba(0,0,0,0.22)",
+                "sheetSlideUp 0.36s var(--ease-spring) both",
+              boxShadow: "var(--shadow-lg)",
             }}
           >
-            <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.3 }}>
+            <div
+              id="delete-title"
+              style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.3 }}
+            >
               Eliminar “{place.title}”?
             </div>
             <div
+              id="delete-desc"
               style={{
                 fontSize: 13,
                 color: "var(--muted)",
@@ -459,6 +510,7 @@ export default function PlaceDetailPage() {
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               <button
+                ref={cancelDeleteRef}
                 onClick={() => setConfirmDelete(false)}
                 disabled={deleting}
                 style={{
@@ -482,12 +534,13 @@ export default function PlaceDetailPage() {
                   flex: 1,
                   padding: "14px",
                   borderRadius: 14,
-                  background: "#C2393C",
+                  background: "var(--error)",
                   border: "none",
                   color: "#fff",
                   fontSize: 15,
                   fontWeight: 600,
                   cursor: deleting ? "not-allowed" : "pointer",
+                  minWidth: 120,
                 }}
               >
                 {deleting ? "A eliminar…" : "Eliminar"}
@@ -514,7 +567,8 @@ function iconBtn(variant?: "left" | "danger" | "active"): React.CSSProperties {
     color: "var(--text)",
     backdropFilter: "blur(12px)",
     WebkitBackdropFilter: "blur(12px)",
-    boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
+    boxShadow: "var(--shadow-md)",
+    transition: "background var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out)",
   };
   if (variant === "left") {
     return {
@@ -528,7 +582,7 @@ function iconBtn(variant?: "left" | "danger" | "active"): React.CSSProperties {
   if (variant === "danger") {
     return {
       ...base,
-      color: "#C2393C",
+      color: "var(--error)",
       borderColor: "rgba(194,57,60,0.35)",
     };
   }
