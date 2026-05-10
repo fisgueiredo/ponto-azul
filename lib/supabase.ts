@@ -7,6 +7,7 @@ export type Place = {
   lat: number;
   lng: number;
   spots: number;
+  pinned: boolean;
   distance_m: number;
   created_at: string;
 };
@@ -19,3 +20,10 @@ export const supabaseConfigured = Boolean(url && key);
 export const supabase: SupabaseClient | null = supabaseConfigured
   ? createClient(url!, key!, { auth: { persistSession: false } })
   : null;
+
+export async function togglePinned(id: string): Promise<boolean | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("toggle_pinned", { p_id: id });
+  if (error) throw error;
+  return typeof data === "boolean" ? data : null;
+}

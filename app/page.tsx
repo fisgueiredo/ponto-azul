@@ -18,6 +18,7 @@ import {
   ISort,
   ILayers,
   ICompass,
+  IStar,
 } from "@/components/Icons";
 import { formatDistance, haversineMeters, normalizeText } from "@/lib/format";
 import BottomSheet from "@/components/BottomSheet";
@@ -86,6 +87,7 @@ export default function HomePage() {
   } | null>(null);
   const [sort, setSort] = useState<SortKey>("distance");
   const [sortOpen, setSortOpen] = useState(false);
+  const [onlyPinned, setOnlyPinned] = useState(false);
   const [query, setQuery] = useState("");
   const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
   const [layersOpen, setLayersOpen] = useState(false);
@@ -206,9 +208,12 @@ export default function HomePage() {
   }, [placesWithRefDistance, queryMatchedIds]);
 
   const sorted = useMemo(() => {
-    const base = queryMatchedIds
+    let base = queryMatchedIds
       ? placesWithRefDistance.filter((p) => queryMatchedIds.has(p.id))
       : placesWithRefDistance.slice();
+    if (onlyPinned) {
+      base = base.filter((p) => p.pinned);
+    }
     if (sort === "name") {
       base.sort((a, b) => a.title.localeCompare(b.title, "pt"));
     } else if (sort === "recent") {
@@ -220,7 +225,12 @@ export default function HomePage() {
       base.sort((a, b) => (a.distance_m || 0) - (b.distance_m || 0));
     }
     return base;
-  }, [placesWithRefDistance, queryMatchedIds, sort, referencePoint]);
+  }, [placesWithRefDistance, queryMatchedIds, sort, referencePoint, onlyPinned]);
+
+  const pinnedCount = useMemo(
+    () => placesWithRefDistance.filter((p) => p.pinned).length,
+    [placesWithRefDistance]
+  );
 
   const NEAR_RADIUS_M = 5000;
   const expandedBounds = useMemo<Bounds | null>(() => {
@@ -916,9 +926,11 @@ export default function HomePage() {
               >
                 {places.length === 0
                   ? "Sem lugares marcados"
-                  : searchOrigin
-                    ? `Lugares perto de ${searchOrigin.label}`
-                    : "Lugares perto"}
+                  : onlyPinned
+                    ? "Favoritos"
+                    : searchOrigin
+                      ? `Lugares perto de ${searchOrigin.label}`
+                      : "Lugares perto"}
               </div>
               <div
                 style={{
@@ -938,9 +950,50 @@ export default function HomePage() {
             </div>
             {places.length > 0 && (
               <div
-                style={{ position: "relative", flexShrink: 0 }}
+                style={{
+                  position: "relative",
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
+                <button
+                  onClick={() => setOnlyPinned((v) => !v)}
+                  aria-label={
+                    onlyPinned ? "Mostrar todos" : "Mostrar apenas favoritos"
+                  }
+                  aria-pressed={onlyPinned}
+                  title={
+                    pinnedCount === 0
+                      ? "Sem favoritos ainda"
+                      : onlyPinned
+                        ? "Mostrar todos"
+                        : "Mostrar apenas favoritos"
+                  }
+                  disabled={pinnedCount === 0 && !onlyPinned}
+                  style={{
+                    background: onlyPinned
+                      ? "rgba(255,210,90,0.18)"
+                      : "var(--card-glass)",
+                    border: onlyPinned
+                      ? "0.5px solid rgba(224,168,46,0.45)"
+                      : "0.5px solid var(--border)",
+                    borderRadius: 12,
+                    cursor:
+                      pinnedCount === 0 && !onlyPinned ? "not-allowed" : "pointer",
+                    padding: "8px 10px",
+                    color: onlyPinned ? "#E0A82E" : "var(--text)",
+                    opacity: pinnedCount === 0 && !onlyPinned ? 0.5 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    transition: "background 0.18s ease, color 0.18s ease",
+                  }}
+                >
+                  <IStar size={16} filled={onlyPinned} strokeWidth={onlyPinned ? 1.6 : 1.75} />
+                </button>
                 <button
                   onClick={() => setSortOpen((o) => !o)}
                   aria-label="Ordenar"
@@ -1028,11 +1081,15 @@ export default function HomePage() {
                 textAlign: "center",
               }}
             >
-              {query
-                ? "Nenhum lugar marcado para esta pesquisa."
-                : searchOrigin
-                  ? `Sem lugares marcados perto de ${searchOrigin.label}.`
-                  : "Sem lugares nesta zona."}
+              {onlyPinned
+                ? pinnedCount === 0
+                  ? "Sem favoritos ainda. Abre um lugar e toca na estrela."
+                  : "Nenhum favorito corresponde a este filtro."
+                : query
+                  ? "Nenhum lugar marcado para esta pesquisa."
+                  : searchOrigin
+                    ? `Sem lugares marcados perto de ${searchOrigin.label}.`
+                    : "Sem lugares nesta zona."}
             </div>
           ) : (
             sorted.map((p, i) => (
@@ -1082,16 +1139,35 @@ export default function HomePage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: 15,
-                      fontWeight: 500,
-                      color: "var(--text)",
-                      letterSpacing: -0.2,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      minWidth: 0,
                     }}
                   >
-                    {p.title}
+                    <span
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 500,
+                        color: "var(--text)",
+                        letterSpacing: -0.2,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        minWidth: 0,
+                      }}
+                    >
+                      {p.title}
+                    </span>
+                    {p.pinned && (
+                      <IStar
+                        size={13}
+                        filled
+                        color="#E0A82E"
+                        strokeWidth={1.4}
+                        style={{ flexShrink: 0 }}
+                      />
+                    )}
                   </div>
                   <div
                     style={{
