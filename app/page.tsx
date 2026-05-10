@@ -193,7 +193,8 @@ export default function HomePage() {
     } | null
   >(null);
   const [autoCentered, setAutoCentered] = useState(restoredCenter !== null);
-  const [sheetHeight, setSheetHeight] = useState(280);
+  const [homeSheetHeight, setHomeSheetHeight] = useState(280);
+  const [formSheetHeight, setFormSheetHeight] = useState(440);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(
     restoredCenter
   );
@@ -207,6 +208,7 @@ export default function HomePage() {
   const [adding, setAdding] = useState<{ lat: number; lng: number } | null>(
     null
   );
+  const sheetHeight = adding ? formSheetHeight : homeSheetHeight;
   const [pressFeedback, setPressFeedback] = useState<
     { lat: number; lng: number; ts: number } | null
   >(null);
@@ -238,6 +240,16 @@ export default function HomePage() {
   });
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const blurTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (adding == null || !mapCenter) return;
+    setAdding((prev) => {
+      if (!prev) return prev;
+      if (prev.lat === mapCenter.lat && prev.lng === mapCenter.lng) return prev;
+      return mapCenter;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adding != null, mapCenter]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -294,7 +306,7 @@ export default function HomePage() {
     // Pre-set the bottom padding to the form sheet's target height so the
     // camera ease lands the pin above the sheet from frame 0.
     const target = Math.max(440, Math.round(window.innerHeight * 0.55));
-    setSheetHeight(target);
+    setFormSheetHeight(target);
     const ts = Date.now();
     setAdding({ lat: pos.lat, lng: pos.lng });
     setPressFeedback({ lat: pos.lat, lng: pos.lng, ts });
@@ -481,8 +493,7 @@ export default function HomePage() {
         zoom={15}
         mapStyle={mapStyle}
         highlightId={selectedId}
-        draggablePin={adding}
-        onPinDrag={(p) => setAdding(p)}
+        centerPin={!!adding}
         pressFeedback={pressFeedback}
         viewportPadding={adding ? { bottom: sheetHeight } : undefined}
         onPinClick={(p) => {
@@ -499,15 +510,20 @@ export default function HomePage() {
         onLongPress={startAdding}
       />
 
-      {!adding && (
       <div
+        aria-hidden={!!adding}
         style={{
           position: "absolute",
           top: "calc(env(safe-area-inset-top, 0px) + 16px)",
           left: 16,
           right: 16,
           zIndex: 12,
-          animation: "fadeUp 0.5s ease-out",
+          transform: adding ? "translateY(-130%)" : "translateY(0)",
+          opacity: adding ? 0 : 1,
+          pointerEvents: adding ? "none" : undefined,
+          transition:
+            "transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1)",
+          willChange: "transform, opacity",
         }}
       >
         <div style={{ position: "relative" }}>
@@ -1013,10 +1029,9 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-      )}
 
-      {!adding && (
       <div
+        aria-hidden={!!adding}
         style={{
           position: "absolute",
           right: 16,
@@ -1026,7 +1041,13 @@ export default function HomePage() {
           flexDirection: "column",
           gap: 12,
           alignItems: "center",
-          transition: "bottom 0.4s cubic-bezier(0.32, 0.72, 0, 1)",
+          transform: adding ? "translateY(40%) scale(0.92)" : "translateY(0) scale(1)",
+          opacity: adding ? 0 : 1,
+          pointerEvents: adding ? "none" : undefined,
+          transition:
+            "bottom 0.4s cubic-bezier(0.32, 0.72, 0, 1), transform 0.36s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.22s cubic-bezier(0.32, 0.72, 0, 1)",
+          willChange: "transform, opacity",
+          transformOrigin: "center bottom",
         }}
       >
         <button
@@ -1075,7 +1096,6 @@ export default function HomePage() {
           <IPlus size={28} color="#fff" strokeWidth={2.2} />
         </button>
       </div>
-      )}
 
       {adding && (
         <AddPlaceSheet
@@ -1086,14 +1106,25 @@ export default function HomePage() {
             setAdding(null);
             router.push(`/lugar/${id}`);
           }}
-          onHeightChange={setSheetHeight}
+          onHeightChange={setFormSheetHeight}
         />
       )}
 
-      {!adding && (
+      <div
+        aria-hidden={!!adding}
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          transform: adding ? "translateY(110%)" : "translateY(0)",
+          transition: "transform 0.44s cubic-bezier(0.32, 0.72, 0, 1)",
+          willChange: "transform",
+          zIndex: 13,
+        }}
+      >
       <BottomSheet
         defaultSnap="mid"
-        onHeightChange={setSheetHeight}
+        onHeightChange={setHomeSheetHeight}
         header={
           <div
             style={{
@@ -1313,7 +1344,7 @@ export default function HomePage() {
           )}
         </div>
       </BottomSheet>
-      )}
+      </div>
     </main>
   );
 }
