@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { useReverseGeocode } from "@/lib/hooks/useReverseGeocode";
-import { IClose, ICheck, IMove, IMapPin } from "@/components/Icons";
+import { IClose, ICheck, IMove, IMapPin, ILocate } from "@/components/Icons";
 import BottomSheet from "@/components/BottomSheet";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 
@@ -29,6 +29,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(
     initial ? { lat: initial.lat, lng: initial.lng } : null
   );
+  const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; ts: number } | null>(null);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [submitting, setSubmitting] = useState(false);
@@ -39,12 +40,24 @@ export default function PlaceEditor({ mode, initial }: Props) {
 
   useEffect(() => {
     if (pos || mode !== "add") return;
+    const params = new URLSearchParams(window.location.search);
+    const lat = parseFloat(params.get("lat") ?? "");
+    const lng = parseFloat(params.get("lng") ?? "");
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setPos({ lat, lng });
+      return;
+    }
     if (geo.lat != null && geo.lng != null) {
       setPos({ lat: geo.lat, lng: geo.lng });
     } else if (geo.error || geo.permission === "denied") {
       setPos(AVEIRO);
     }
   }, [geo.lat, geo.lng, geo.error, geo.permission, pos, mode]);
+
+  const onLocateMe = () => {
+    if (geo.lat == null || geo.lng == null) return;
+    setFlyTo({ lat: geo.lat, lng: geo.lng, ts: Date.now() });
+  };
 
   const valid =
     title.trim().length > 0 && pos !== null && !submitting && !done;
@@ -120,12 +133,45 @@ export default function PlaceEditor({ mode, initial }: Props) {
       {pos && (
         <MapView
           initialCenter={pos}
+          flyTo={flyTo}
           zoom={16}
           interactive
           centerPin
           onCenterChange={(next) => setPos(next)}
           viewportPadding={{ bottom: sheetHeight }}
         />
+      )}
+
+      {mode === "add" && (
+        <button
+          aria-label="Centrar na minha localização"
+          onClick={onLocateMe}
+          disabled={geo.lat == null || geo.lng == null}
+          style={{
+            position: "absolute",
+            right: 16,
+            bottom: sheetHeight + 16,
+            zIndex: 12,
+            width: 48,
+            height: 48,
+            borderRadius: 16,
+            background: "var(--card-glass)",
+            backdropFilter: "blur(18px)",
+            WebkitBackdropFilter: "blur(18px)",
+            border: "0.5px solid var(--border)",
+            boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor:
+              geo.lat != null && geo.lng != null ? "pointer" : "default",
+            opacity: geo.lat != null && geo.lng != null ? 1 : 0.5,
+            color: "var(--text)",
+            transition: "bottom 0.4s cubic-bezier(0.32, 0.72, 0, 1)",
+          }}
+        >
+          <ILocate size={22} />
+        </button>
       )}
 
       <div
