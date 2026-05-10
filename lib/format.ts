@@ -9,7 +9,7 @@ export function normalizeText(s: string): string {
   return s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+    .replace(/\p{Diacritic}/gu, "");
 }
 
 const EARTH_R = 6371000;

@@ -1,5 +1,7 @@
-const CACHE = "ponto-azul-v4";
-const RUNTIME = "ponto-azul-runtime-v4";
+// IMPORTANT: bump CACHE/RUNTIME version on every shell or asset-strategy change
+// so existing installs purge stale caches on activate.
+const CACHE = "ponto-azul-v5";
+const RUNTIME = "ponto-azul-runtime-v5";
 const SHELL = [
   "/",
   "/adicionar",
@@ -68,7 +70,7 @@ self.addEventListener("fetch", (event) => {
         (cached) =>
           cached ||
           fetch(req).then((res) => {
-            if (res.ok) {
+            if (res.ok && res.status === 200 && res.type === "basic") {
               const copy = res.clone();
               caches.open(RUNTIME).then((c) => c.put(req, copy)).catch(() => {});
             }
@@ -85,7 +87,7 @@ self.addEventListener("fetch", (event) => {
       caches.match(req).then((cached) => {
         const network = fetch(req)
           .then((res) => {
-            if (res.ok) {
+            if (res.ok && res.status === 200 && res.type === "basic") {
               const copy = res.clone();
               caches.open(RUNTIME).then((c) => c.put(req, copy)).catch(() => {});
             }
