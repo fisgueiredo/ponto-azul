@@ -34,7 +34,6 @@ export default function PlaceEditor({ mode, initial }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sheetHeight, setSheetHeight] = useState(280);
   const { city } = useReverseGeocode(pos?.lat ?? null, pos?.lng ?? null);
 
   useEffect(() => {
@@ -124,7 +123,6 @@ export default function PlaceEditor({ mode, initial }: Props) {
           interactive
           centerPin
           onCenterChange={(next) => setPos(next)}
-          viewportPadding={{ bottom: sheetHeight }}
         />
       )}
 
@@ -217,7 +215,6 @@ export default function PlaceEditor({ mode, initial }: Props) {
 
       <BottomSheet
         defaultSnap="mid"
-        onHeightChange={setSheetHeight}
         header={
           <div>
             <div

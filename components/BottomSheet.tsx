@@ -6,11 +6,11 @@ export type Snap = "min" | "mid" | "max";
 const SAFE_BOTTOM_OFFSET = 56;
 
 function snapHeights(): Record<Snap, number> {
-  if (typeof window === "undefined") return { min: 64, mid: 280, max: 600 };
+  if (typeof window === "undefined") return { min: 64, mid: 420, max: 600 };
   const vh = window.innerHeight;
   return {
     min: 64,
-    mid: Math.max(220, Math.min(320, Math.round(vh * 0.35))),
+    mid: Math.max(360, Math.round(vh * 0.5)),
     max: Math.max(360, vh - SAFE_BOTTOM_OFFSET),
   };
 }
@@ -158,7 +158,7 @@ export default function BottomSheet({
         className="no-scrollbar"
         style={{
           flex: 1,
-          overflowY: snap === "max" ? "auto" : "hidden",
+          overflowY: snap === "min" ? "hidden" : "auto",
           padding: footer
             ? "0 16px 0"
             : "0 16px calc(env(safe-area-inset-bottom, 0px) + 24px)",

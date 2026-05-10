@@ -150,8 +150,19 @@ export default function PlaceDetailPage() {
           gap: 8,
         }}
       >
-        <button aria-label="Editar" onClick={() => router.push(`/lugar/${place.id}/editar`)} style={iconBtn()}>
+        <button
+          aria-label="Editar"
+          onClick={() => router.push(`/lugar/${place.id}/editar`)}
+          style={iconBtn()}
+        >
           <IEdit size={18} />
+        </button>
+        <button
+          aria-label="Eliminar"
+          onClick={() => setConfirmDelete(true)}
+          style={iconBtn("danger")}
+        >
+          <ITrash size={18} />
         </button>
         <button aria-label="Partilhar" onClick={onShare} style={iconBtn()}>
           <IShare size={18} />
@@ -240,29 +251,6 @@ export default function PlaceDetailPage() {
             {place.description}
           </p>
         )}
-
-        <div style={{ marginTop: 36 }}>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "10px 14px",
-              borderRadius: 12,
-              background: "transparent",
-              border: "0.5px solid rgba(194,57,60,0.35)",
-              color: "#C2393C",
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: -0.1,
-              cursor: "pointer",
-            }}
-          >
-            <ITrash size={15} />
-            Eliminar lugar
-          </button>
-        </div>
       </div>
 
       <div
@@ -430,7 +418,7 @@ export default function PlaceDetailPage() {
   );
 }
 
-function iconBtn(_pos?: "left"): React.CSSProperties {
+function iconBtn(variant?: "left" | "danger"): React.CSSProperties {
   const base: React.CSSProperties = {
     width: 40,
     height: 40,
@@ -446,13 +434,20 @@ function iconBtn(_pos?: "left"): React.CSSProperties {
     WebkitBackdropFilter: "blur(12px)",
     boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
   };
-  if (_pos === "left") {
+  if (variant === "left") {
     return {
       ...base,
       position: "absolute",
       top: "calc(env(safe-area-inset-top, 0px) + 16px)",
       left: 16,
       zIndex: 20,
+    };
+  }
+  if (variant === "danger") {
+    return {
+      ...base,
+      color: "#C2393C",
+      borderColor: "rgba(194,57,60,0.35)",
     };
   }
   return base;
