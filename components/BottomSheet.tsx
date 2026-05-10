@@ -35,6 +35,7 @@ export default function BottomSheet({
   const [snap, setSnap] = useState<Snap>(defaultSnap);
   const [height, setHeight] = useState<number>(0);
   const [transitioning, setTransitioning] = useState(true);
+  const [dragging, setDragging] = useState(false);
   const startYRef = useRef<number | null>(null);
   const startHeightRef = useRef<number>(0);
   const lastReportedRef = useRef<number>(0);
@@ -69,6 +70,7 @@ export default function BottomSheet({
     startYRef.current = e.clientY;
     startHeightRef.current = height;
     setTransitioning(false);
+    setDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -86,6 +88,7 @@ export default function BottomSheet({
     if (startYRef.current == null) return;
     startYRef.current = null;
     setTransitioning(true);
+    setDragging(false);
     const heights = snapHeights();
     const candidates: Snap[] = ["min", "mid", "max"];
     let best: Snap = "mid";
@@ -139,11 +142,14 @@ export default function BottomSheet({
       >
         <div
           style={{
-            width: 40,
+            width: dragging ? 52 : 40,
             height: 5,
             borderRadius: 3,
-            background: "rgba(0,0,0,0.18)",
+            background: dragging
+              ? "rgba(39,116,174,0.6)"
+              : "rgba(0,0,0,0.18)",
             margin: "0 auto",
+            transition: "all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)",
           }}
         />
         {header && <div style={{ marginTop: 10 }}>{header}</div>}

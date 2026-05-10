@@ -350,12 +350,12 @@ export default function PlaceDetailPage() {
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(0,0,0,0.4)",
+            background: "rgba(0,0,0,0.45)",
             zIndex: 50,
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            animation: "fadeUp 0.2s ease-out",
+            animation: "overlayFade 0.22s ease-out both",
           }}
           onClick={() => !deleting && setConfirmDelete(false)}
         >
@@ -369,7 +369,9 @@ export default function PlaceDetailPage() {
               borderTopRightRadius: 24,
               padding:
                 "24px 20px calc(env(safe-area-inset-bottom, 0px) + 24px)",
-              animation: "fadeUp 0.3s cubic-bezier(0.34, 1.4, 0.64, 1)",
+              animation:
+                "sheetSlideUp 0.36s cubic-bezier(0.32, 0.72, 0, 1) both",
+              boxShadow: "0 -12px 40px rgba(0,0,0,0.22)",
             }}
           >
             <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.3 }}>

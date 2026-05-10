@@ -412,7 +412,7 @@ export default function HomePage() {
                 : "Sem lugares ainda."}
             </div>
           ) : (
-            sorted.map((p) => (
+            sorted.map((p, i) => (
               <button
                 key={p.id}
                 onClick={() => router.push(`/lugar/${p.id}`)}
@@ -428,6 +428,8 @@ export default function HomePage() {
                   textAlign: "left",
                   color: "var(--text)",
                   width: "100%",
+                  animation: `staggerIn 0.32s cubic-bezier(0.32, 0.72, 0, 1) both`,
+                  animationDelay: `${Math.min(i, 12) * 28}ms`,
                 }}
               >
                 <div

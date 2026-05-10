@@ -27,6 +27,8 @@ export function createPinElement(
     wrap.style.filter = opts.active
       ? "drop-shadow(0 4px 8px rgba(39,116,174,0.4))"
       : "drop-shadow(0 2px 3px rgba(0,0,0,0.18))";
+    wrap.style.animation =
+      "pinDrop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both";
     wrap.innerHTML = `
       <span style="position:absolute;left:4px;top:4px;width:24px;height:24px;border-radius:50%;background:#2774AE;opacity:.35;animation:pingPulse 1.8s ease-out infinite;display:block;pointer-events:none;"></span>
       ${PLACE_SVG}
@@ -36,6 +38,8 @@ export function createPinElement(
     wrap.style.height = "22px";
     wrap.style.transformOrigin = "50% 50%";
     wrap.style.filter = "drop-shadow(0 2px 6px rgba(39,116,174,0.45))";
+    wrap.style.animation =
+      "fadeUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both";
     wrap.innerHTML = `
       <span style="position:absolute;left:-4px;top:-4px;width:30px;height:30px;border-radius:50%;background:#2774AE;opacity:.32;animation:pingPulse 1.8s ease-out infinite;display:block;pointer-events:none;"></span>
       ${USER_SVG}
