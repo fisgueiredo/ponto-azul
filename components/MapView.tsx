@@ -144,7 +144,13 @@ function MapViewImpl({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !flyTo) return;
-    map.flyTo({ center: [flyTo.lng, flyTo.lat], zoom, duration: 800 });
+    map.flyTo({
+      center: [flyTo.lng, flyTo.lat],
+      zoom,
+      bearing: 0,
+      pitch: 0,
+      duration: 800,
+    });
   }, [flyTo, zoom]);
 
   const padTop = viewportPadding?.top ?? 0;
