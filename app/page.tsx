@@ -413,32 +413,120 @@ export default function HomePage() {
         onHeightChange={setSheetHeight}
         onSnapChange={setSnap}
         header={
-          <div>
-            <div
-              style={{
-                fontSize: 17,
-                fontWeight: 600,
-                color: "var(--text)",
-                letterSpacing: -0.3,
-              }}
-            >
-              {places.length === 0 ? "Sem lugares marcados" : "Lugares perto"}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 10,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 17,
+                  fontWeight: 600,
+                  color: "var(--text)",
+                  letterSpacing: -0.3,
+                }}
+              >
+                {places.length === 0 ? "Sem lugares marcados" : "Lugares perto"}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--muted)",
+                  marginTop: 2,
+                  fontFamily: "var(--font-geist-mono)",
+                  letterSpacing: -0.1,
+                }}
+              >
+                {places.length === 0
+                  ? "toca em + para marcar o primeiro"
+                  : `${places.length} ${places.length === 1 ? "lugar" : "lugares"} · ${
+                      SORT_LABELS[sort].toLowerCase()
+                    }`}
+              </div>
             </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: "var(--muted)",
-                marginTop: 2,
-                fontFamily: "var(--font-geist-mono)",
-                letterSpacing: -0.1,
-              }}
-            >
-              {places.length === 0
-                ? "toca em + para marcar o primeiro"
-                : `${places.length} ${places.length === 1 ? "lugar" : "lugares"} · ${
-                    SORT_LABELS[sort].toLowerCase()
-                  }`}
-            </div>
+            {places.length > 0 && (
+              <div
+                style={{ position: "relative", flexShrink: 0 }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setSortOpen((o) => !o)}
+                  aria-label="Ordenar"
+                  aria-expanded={sortOpen}
+                  style={{
+                    background: "var(--card-glass)",
+                    border: "0.5px solid var(--border)",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    padding: "8px 10px",
+                    color: "var(--text)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <ISort size={16} />
+                  <IChevDown
+                    size={12}
+                    color="var(--muted)"
+                    style={{
+                      transform: sortOpen ? "rotate(180deg)" : "none",
+                      transition: "transform 0.2s",
+                    }}
+                  />
+                </button>
+                {sortOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 6px)",
+                      right: 0,
+                      zIndex: 30,
+                      background: "var(--card)",
+                      borderRadius: 14,
+                      boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+                      border: "0.5px solid var(--border)",
+                      overflow: "hidden",
+                      minWidth: 180,
+                    }}
+                  >
+                    {(Object.keys(SORT_LABELS) as SortKey[]).map((s, i, arr) => (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          setSort(s);
+                          setSortOpen(false);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          width: "100%",
+                          padding: "12px 14px",
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          borderBottom:
+                            i < arr.length - 1
+                              ? "0.5px solid var(--border)"
+                              : "none",
+                          fontSize: 14,
+                          color: "var(--text)",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span>{SORT_LABELS[s]}</span>
+                        {sort === s && <ICheck size={16} color="#2774AE" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         }
       >
@@ -453,7 +541,6 @@ export default function HomePage() {
               borderRadius: 14,
               background: "rgba(20,30,40,0.05)",
               border: "0.5px solid var(--border)",
-              position: "relative",
             }}
           >
             <ISearch size={18} color="var(--muted)" />
@@ -471,76 +558,6 @@ export default function HomePage() {
                 letterSpacing: -0.1,
               }}
             />
-            <button
-              onClick={() => setSortOpen((o) => !o)}
-              aria-label="Ordenar"
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: 6,
-                color: "var(--text)",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <ISort size={16} />
-              <IChevDown
-                size={12}
-                color="var(--muted)"
-                style={{
-                  transform: sortOpen ? "rotate(180deg)" : "none",
-                  transition: "transform 0.2s",
-                }}
-              />
-            </button>
-            {sortOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 6px)",
-                  right: 0,
-                  zIndex: 30,
-                  background: "var(--card)",
-                  borderRadius: 14,
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
-                  border: "0.5px solid var(--border)",
-                  overflow: "hidden",
-                  minWidth: 180,
-                }}
-              >
-                {(Object.keys(SORT_LABELS) as SortKey[]).map((s, i, arr) => (
-                  <button
-                    key={s}
-                    onClick={() => {
-                      setSort(s);
-                      setSortOpen(false);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      width: "100%",
-                      padding: "12px 14px",
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      borderBottom:
-                        i < arr.length - 1
-                          ? "0.5px solid var(--border)"
-                          : "none",
-                      fontSize: 14,
-                      color: "var(--text)",
-                      textAlign: "left",
-                    }}
-                  >
-                    <span>{SORT_LABELS[s]}</span>
-                    {sort === s && <ICheck size={16} color="#2774AE" />}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
