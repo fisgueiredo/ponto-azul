@@ -18,21 +18,31 @@ export function useTheme() {
   const [choice, setChoice] = useState<ThemeChoice>("system");
 
   useEffect(() => {
-    const stored = (localStorage.getItem(KEY) as ThemeChoice | null) ?? "system";
-    setChoice(stored);
-    applyTheme(stored);
-    if (stored === "system") {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const handler = () => applyTheme("system");
-      mq.addEventListener("change", handler);
-      return () => mq.removeEventListener("change", handler);
+    try {
+      const stored =
+        (localStorage.getItem(KEY) as ThemeChoice | null) ?? "system";
+      setChoice(stored);
+    } catch {
+      // ignore storage errors
     }
   }, []);
 
+  useEffect(() => {
+    applyTheme(choice);
+    if (choice !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => applyTheme("system");
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [choice]);
+
   const setTheme = useCallback((next: ThemeChoice) => {
     setChoice(next);
-    localStorage.setItem(KEY, next);
-    applyTheme(next);
+    try {
+      localStorage.setItem(KEY, next);
+    } catch {
+      // ignore storage errors
+    }
   }, []);
 
   return { theme: choice, setTheme };

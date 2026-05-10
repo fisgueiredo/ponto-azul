@@ -8,7 +8,7 @@ export default function Template({
     <div
       style={{
         animation:
-          "pageEnter 0.32s cubic-bezier(0.32, 0.72, 0, 1) both",
+          "pageEnter 0.22s cubic-bezier(0.32, 0.72, 0, 1) both",
         height: "100%",
       }}
     >

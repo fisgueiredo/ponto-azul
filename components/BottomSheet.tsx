@@ -5,11 +5,10 @@ export type Snap = "min" | "mid" | "max";
 
 const SAFE_BOTTOM_OFFSET = 56;
 
-function snapHeights(midHeight?: (vh: number) => number): Record<Snap, number> {
-  if (typeof window === "undefined") {
-    return { min: 64, mid: midHeight?.(800) ?? 260, max: 600 };
-  }
-  const vh = window.innerHeight;
+function computeSnapHeights(
+  vh: number,
+  midHeight?: (vh: number) => number
+): Record<Snap, number> {
   const max = Math.max(360, vh - SAFE_BOTTOM_OFFSET);
   const mid = midHeight ? midHeight(vh) : Math.max(240, Math.round(vh * 0.32));
   return {
@@ -17,6 +16,13 @@ function snapHeights(midHeight?: (vh: number) => number): Record<Snap, number> {
     mid: Math.min(mid, max),
     max,
   };
+}
+
+function snapHeights(midHeight?: (vh: number) => number): Record<Snap, number> {
+  if (typeof window === "undefined") {
+    return { min: 64, mid: midHeight?.(800) ?? 260, max: 600 };
+  }
+  return computeSnapHeights(window.innerHeight, midHeight);
 }
 
 type Props = {
@@ -45,6 +51,25 @@ export default function BottomSheet({
   const startYRef = useRef<number | null>(null);
   const startHeightRef = useRef<number>(0);
   const lastReportedRef = useRef<number>(0);
+  const heightRef = useRef<number>(0);
+  const dragRafRef = useRef<number>(0);
+  const pendingDragHeightRef = useRef<number | null>(null);
+  const cachedSnapHeightsRef = useRef<Record<Snap, number> | null>(null);
+  const cachedVhRef = useRef<number>(0);
+
+  const getSnapHeights = useCallback((): Record<Snap, number> => {
+    if (typeof window === "undefined") {
+      return snapHeights(midHeight);
+    }
+    const vh = window.innerHeight;
+    if (cachedSnapHeightsRef.current && cachedVhRef.current === vh) {
+      return cachedSnapHeightsRef.current;
+    }
+    const h = computeSnapHeights(vh, midHeight);
+    cachedSnapHeightsRef.current = h;
+    cachedVhRef.current = vh;
+    return h;
+  }, [midHeight]);
 
   const reportHeight = useCallback(
     (h: number) => {
@@ -56,25 +81,34 @@ export default function BottomSheet({
   );
 
   useEffect(() => {
-    const target = snapHeights(midHeight)[snap];
+    const target = getSnapHeights()[snap];
+    heightRef.current = target;
     setHeight(target);
     reportHeight(target);
     onSnapChange?.(snap);
-  }, [snap, midHeight, reportHeight, onSnapChange]);
+  }, [snap, getSnapHeights, reportHeight, onSnapChange]);
 
   useEffect(() => {
     const handler = () => {
-      const target = snapHeights(midHeight)[snap];
+      cachedSnapHeightsRef.current = null;
+      const target = getSnapHeights()[snap];
+      heightRef.current = target;
       setHeight(target);
       reportHeight(target);
     };
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
-  }, [snap, midHeight, reportHeight]);
+  }, [snap, getSnapHeights, reportHeight]);
+
+  useEffect(() => {
+    return () => {
+      if (dragRafRef.current) cancelAnimationFrame(dragRafRef.current);
+    };
+  }, []);
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     startYRef.current = e.clientY;
-    startHeightRef.current = height;
+    startHeightRef.current = heightRef.current || height;
     setTransitioning(false);
     setDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -82,25 +116,44 @@ export default function BottomSheet({
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (startYRef.current == null) return;
     const dy = startYRef.current - e.clientY;
-    const heights = snapHeights(midHeight);
+    const heights = getSnapHeights();
     const next = Math.max(
       heights.min,
       Math.min(heights.max, startHeightRef.current + dy)
     );
-    setHeight(next);
-    reportHeight(next);
+    pendingDragHeightRef.current = next;
+    if (dragRafRef.current) return;
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = 0;
+      const h = pendingDragHeightRef.current;
+      if (h == null) return;
+      heightRef.current = h;
+      setHeight(h);
+      reportHeight(h);
+    });
   };
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (startYRef.current == null) return;
     startYRef.current = null;
+    if (dragRafRef.current) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = 0;
+      const h = pendingDragHeightRef.current;
+      if (h != null) {
+        heightRef.current = h;
+        setHeight(h);
+        reportHeight(h);
+      }
+    }
+    pendingDragHeightRef.current = null;
     setTransitioning(true);
     setDragging(false);
-    const heights = snapHeights(midHeight);
+    const heights = getSnapHeights();
     const candidates: Snap[] = ["min", "mid", "max"];
     let best: Snap = "mid";
     let bestDist = Infinity;
     for (const c of candidates) {
-      const d = Math.abs(height - heights[c]);
+      const d = Math.abs(heightRef.current - heights[c]);
       if (d < bestDist) {
         bestDist = d;
         best = c;
@@ -129,6 +182,7 @@ export default function BottomSheet({
         transition: transitioning
           ? "height 0.4s cubic-bezier(0.32, 0.72, 0, 1)"
           : "none",
+        willChange: dragging ? "height" : undefined,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
