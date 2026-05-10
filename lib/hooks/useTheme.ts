@@ -5,13 +5,29 @@ export type ThemeChoice = "light" | "dark" | "system";
 
 const KEY = "pa:theme";
 
-function applyTheme(choice: ThemeChoice) {
-  const dark =
-    choice === "dark" ||
-    (choice === "system" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
-  if (dark) document.documentElement.setAttribute("data-theme", "dark");
-  else document.documentElement.removeAttribute("data-theme");
+declare global {
+  interface Window {
+    __paApplyTheme?: () => void;
+  }
+}
+
+function applyTheme() {
+  if (typeof window === "undefined") return;
+  if (typeof window.__paApplyTheme === "function") {
+    window.__paApplyTheme();
+    return;
+  }
+  try {
+    const t = (localStorage.getItem(KEY) as ThemeChoice | null) ?? "system";
+    const dark =
+      t === "dark" ||
+      (t === "system" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    if (dark) document.documentElement.setAttribute("data-theme", "dark");
+    else document.documentElement.removeAttribute("data-theme");
+  } catch {
+    // ignore
+  }
 }
 
 export function useTheme() {
@@ -27,15 +43,6 @@ export function useTheme() {
     }
   }, []);
 
-  useEffect(() => {
-    applyTheme(choice);
-    if (choice !== "system") return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => applyTheme("system");
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, [choice]);
-
   const setTheme = useCallback((next: ThemeChoice) => {
     setChoice(next);
     try {
@@ -43,6 +50,7 @@ export function useTheme() {
     } catch {
       // ignore storage errors
     }
+    applyTheme();
   }, []);
 
   return { theme: choice, setTheme };
