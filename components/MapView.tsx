@@ -3,7 +3,7 @@ import { memo, useEffect, useRef } from "react";
 import maplibregl, { Map as MLMap, Marker, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Place } from "@/lib/supabase";
-import { createPinElement } from "./PinElement";
+import { createPinElement, setPinActive } from "./PinElement";
 
 type LatLng = { lat: number; lng: number };
 
@@ -22,6 +22,7 @@ type Props = {
   mapStyle?: MapStyleKind;
   onPinClick?: (place: Place) => void;
   onLongPress?: (pos: LatLng) => void;
+  onUserDrag?: () => void;
   draggablePin?: LatLng | null;
   onPinDrag?: (pos: LatLng) => void;
   centerPin?: boolean;
@@ -75,6 +76,7 @@ function MapViewImpl({
   mapStyle = "standard",
   onPinClick,
   onLongPress,
+  onUserDrag,
   draggablePin = null,
   onPinDrag,
   centerPin = false,
@@ -93,12 +95,14 @@ function MapViewImpl({
   const onPinDragRef = useRef(onPinDrag);
   const onCenterChangeRef = useRef(onCenterChange);
   const onLongPressRef = useRef(onLongPress);
+  const onUserDragRef = useRef(onUserDrag);
 
   useEffect(() => {
     onPinClickRef.current = onPinClick;
     onPinDragRef.current = onPinDrag;
     onCenterChangeRef.current = onCenterChange;
     onLongPressRef.current = onLongPress;
+    onUserDragRef.current = onUserDrag;
   });
 
   useEffect(() => {
@@ -165,11 +169,15 @@ function MapViewImpl({
     const handleContextMenu = (e: maplibregl.MapMouseEvent) => {
       onLongPressRef.current?.({ lat: e.lngLat.lat, lng: e.lngLat.lng });
     };
+    const handleDragStart = () => {
+      onUserDragRef.current?.();
+    };
     map.on("touchstart", handleTouchStart);
     map.on("touchmove", handleTouchMove);
     map.on("touchend", cancelPress);
     map.on("touchcancel", cancelPress);
     map.on("contextmenu", handleContextMenu);
+    map.on("dragstart", handleDragStart);
 
     return () => {
       cancelPress();
@@ -179,6 +187,7 @@ function MapViewImpl({
       map.off("touchend", cancelPress);
       map.off("touchcancel", cancelPress);
       map.off("contextmenu", handleContextMenu);
+      map.off("dragstart", handleDragStart);
       map.remove();
       mapRef.current = null;
       markers.clear();
@@ -209,6 +218,7 @@ function MapViewImpl({
       const prev = existing.get(p.id);
       if (prev) {
         prev.setLngLat([p.lng, p.lat]);
+        setPinActive(prev.getElement() as HTMLDivElement, p.id === highlightId);
         continue;
       }
       const el = createPinElement("place", { active: p.id === highlightId });

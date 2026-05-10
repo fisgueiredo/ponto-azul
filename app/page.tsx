@@ -78,6 +78,7 @@ export default function HomePage() {
   const [query, setQuery] = useState("");
   const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
   const [layersOpen, setLayersOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -160,8 +161,10 @@ export default function HomePage() {
         flyTo={flyTo}
         zoom={15}
         mapStyle={mapStyle}
+        highlightId={selectedId}
         onPinClick={(p) => router.push(`/lugar/${p.id}`)}
         onCenterChange={setMapCenter}
+        onUserDrag={() => setSelectedId(null)}
         onLongPress={(pos) =>
           router.push(`/adicionar?lat=${pos.lat}&lng=${pos.lng}&z=19`)
         }
@@ -579,13 +582,22 @@ export default function HomePage() {
             sorted.map((p, i) => (
               <button
                 key={p.id}
-                onClick={() => router.push(`/lugar/${p.id}`)}
+                onClick={() => {
+                  if (selectedId === p.id) {
+                    router.push(`/lugar/${p.id}`);
+                    return;
+                  }
+                  setSelectedId(p.id);
+                  setFlyTo({ lat: p.lat, lng: p.lng, ts: Date.now() });
+                }}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
-                  padding: "10px 4px",
-                  background: "transparent",
+                  padding: "10px 8px",
+                  background:
+                    selectedId === p.id ? "rgba(39,116,174,0.10)" : "transparent",
+                  borderRadius: 12,
                   border: "none",
                   borderBottom: "0.5px solid var(--border)",
                   cursor: "pointer",
@@ -594,6 +606,7 @@ export default function HomePage() {
                   width: "100%",
                   animation: `staggerIn 0.32s cubic-bezier(0.32, 0.72, 0, 1) both`,
                   animationDelay: `${Math.min(i, 12) * 28}ms`,
+                  transition: "background 0.2s ease",
                 }}
               >
                 <div

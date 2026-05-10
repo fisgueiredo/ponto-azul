@@ -12,6 +12,16 @@ const USER_SVG = `
   <circle cx="11" cy="11" r="9" fill="#2774AE" stroke="#fff" stroke-width="3"/>
 </svg>`;
 
+export function setPinActive(wrap: HTMLDivElement, active: boolean) {
+  const inner = wrap.firstElementChild as HTMLDivElement | null;
+  if (!inner) return;
+  inner.style.filter = active
+    ? "drop-shadow(0 6px 12px rgba(39,116,174,0.55))"
+    : "drop-shadow(0 2px 3px rgba(0,0,0,0.18))";
+  inner.style.transform = active ? "scale(1.18)" : "scale(1)";
+  inner.style.transition = "transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)";
+}
+
 export function createPinElement(
   kind: PinKind = "place",
   opts: { active?: boolean } = {}
@@ -27,9 +37,11 @@ export function createPinElement(
     inner.style.width = "32px";
     inner.style.height = "40px";
     inner.style.transformOrigin = "50% 100%";
+    inner.style.transition = "transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)";
     inner.style.filter = opts.active
-      ? "drop-shadow(0 4px 8px rgba(39,116,174,0.4))"
+      ? "drop-shadow(0 6px 12px rgba(39,116,174,0.55))"
       : "drop-shadow(0 2px 3px rgba(0,0,0,0.18))";
+    if (opts.active) inner.style.transform = "scale(1.18)";
     inner.style.animation =
       "pinDrop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both";
     inner.innerHTML = `
