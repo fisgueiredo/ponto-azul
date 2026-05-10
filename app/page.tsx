@@ -43,11 +43,28 @@ export default function HomePage() {
   });
   const { city } = useReverseGeocode(userPosition?.lat ?? null, userPosition?.lng ?? null);
 
+  const restoredCenter = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.sessionStorage.getItem("pa:mapCenter");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { lat: number; lng: number };
+      if (Number.isFinite(parsed.lat) && Number.isFinite(parsed.lng)) {
+        return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }, []);
+
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; ts: number } | null>(null);
-  const [autoCentered, setAutoCentered] = useState(false);
+  const [autoCentered, setAutoCentered] = useState(restoredCenter !== null);
   const [sheetHeight, setSheetHeight] = useState(280);
   const [snap, setSnap] = useState<Snap>("mid");
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(
+    restoredCenter
+  );
   const [sort, setSort] = useState<SortKey>("distance");
   const [sortOpen, setSortOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -57,6 +74,15 @@ export default function HomePage() {
     setFlyTo({ ...userPosition, ts: Date.now() });
     setAutoCentered(true);
   }, [userPosition, autoCentered]);
+
+  useEffect(() => {
+    if (!mapCenter) return;
+    try {
+      window.sessionStorage.setItem("pa:mapCenter", JSON.stringify(mapCenter));
+    } catch {
+      // ignore
+    }
+  }, [mapCenter]);
 
   useEffect(() => {
     router.prefetch("/adicionar");
@@ -100,7 +126,7 @@ export default function HomePage() {
       <MapView
         places={places}
         userPosition={userPosition}
-        initialCenter={userPosition}
+        initialCenter={restoredCenter ?? userPosition}
         flyTo={flyTo}
         zoom={15}
         onPinClick={(p) => router.push(`/lugar/${p.id}`)}
