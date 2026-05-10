@@ -27,6 +27,8 @@ type Props = {
   onPinDrag?: (pos: LatLng) => void;
   centerPin?: boolean;
   onCenterChange?: (pos: LatLng) => void;
+  onBearingChange?: (bearing: number) => void;
+  resetBearing?: { ts: number } | null;
   viewportPadding?: Padding;
   highlightId?: string | null;
   className?: string;
@@ -81,6 +83,8 @@ function MapViewImpl({
   onPinDrag,
   centerPin = false,
   onCenterChange,
+  onBearingChange,
+  resetBearing = null,
   viewportPadding,
   highlightId = null,
   className,
@@ -94,6 +98,7 @@ function MapViewImpl({
   const onPinClickRef = useRef(onPinClick);
   const onPinDragRef = useRef(onPinDrag);
   const onCenterChangeRef = useRef(onCenterChange);
+  const onBearingChangeRef = useRef(onBearingChange);
   const onLongPressRef = useRef(onLongPress);
   const onUserDragRef = useRef(onUserDrag);
 
@@ -101,6 +106,7 @@ function MapViewImpl({
     onPinClickRef.current = onPinClick;
     onPinDragRef.current = onPinDrag;
     onCenterChangeRef.current = onCenterChange;
+    onBearingChangeRef.current = onBearingChange;
     onLongPressRef.current = onLongPress;
     onUserDragRef.current = onUserDrag;
   });
@@ -123,6 +129,11 @@ function MapViewImpl({
       onCenterChangeRef.current?.({ lat: c.lat, lng: c.lng });
     };
     map.on("moveend", handleMoveEnd);
+    const handleRotate = () => {
+      onBearingChangeRef.current?.(map.getBearing());
+    };
+    map.on("rotate", handleRotate);
+    map.on("rotateend", handleRotate);
 
     let pressTimer: ReturnType<typeof setTimeout> | null = null;
     let pressOrigin: { x: number; y: number; lat: number; lng: number } | null =
@@ -182,6 +193,8 @@ function MapViewImpl({
     return () => {
       cancelPress();
       map.off("moveend", handleMoveEnd);
+      map.off("rotate", handleRotate);
+      map.off("rotateend", handleRotate);
       map.off("touchstart", handleTouchStart);
       map.off("touchmove", handleTouchMove);
       map.off("touchend", cancelPress);
@@ -268,6 +281,12 @@ function MapViewImpl({
       duration: 800,
     });
   }, [flyTo, zoom]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !resetBearing) return;
+    map.easeTo({ bearing: 0, pitch: 0, duration: 400 });
+  }, [resetBearing]);
 
   const padTop = viewportPadding?.top ?? 0;
   const padBottom = viewportPadding?.bottom ?? 0;
