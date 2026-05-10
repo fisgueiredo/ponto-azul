@@ -263,7 +263,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
               justifyContent: "center",
               gap: 10,
               cursor: valid ? "pointer" : "not-allowed",
-              boxShadow: valid ? "0 10px 24px rgba(0,175,84,0.35)" : "none",
+              boxShadow: "none",
               transition: "all 0.25s ease",
             }}
           >

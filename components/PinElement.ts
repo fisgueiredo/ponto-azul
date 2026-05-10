@@ -17,33 +17,38 @@ export function createPinElement(
   opts: { active?: boolean } = {}
 ): HTMLDivElement {
   const wrap = document.createElement("div");
-  wrap.style.position = "relative";
   wrap.style.cursor = "pointer";
-  wrap.style.transformOrigin = "50% 100%";
+
+  const inner = document.createElement("div");
+  inner.style.position = "relative";
+  inner.style.pointerEvents = "auto";
 
   if (kind === "place") {
-    wrap.style.width = "32px";
-    wrap.style.height = "40px";
-    wrap.style.filter = opts.active
+    inner.style.width = "32px";
+    inner.style.height = "40px";
+    inner.style.transformOrigin = "50% 100%";
+    inner.style.filter = opts.active
       ? "drop-shadow(0 4px 8px rgba(39,116,174,0.4))"
       : "drop-shadow(0 2px 3px rgba(0,0,0,0.18))";
-    wrap.style.animation =
+    inner.style.animation =
       "pinDrop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both";
-    wrap.innerHTML = `
+    inner.innerHTML = `
       <span style="position:absolute;left:4px;top:4px;width:24px;height:24px;border-radius:50%;background:#2774AE;opacity:.35;animation:pingPulse 1.8s ease-out infinite;display:block;pointer-events:none;"></span>
       ${PLACE_SVG}
     `;
   } else {
-    wrap.style.width = "22px";
-    wrap.style.height = "22px";
-    wrap.style.transformOrigin = "50% 50%";
-    wrap.style.filter = "drop-shadow(0 2px 6px rgba(39,116,174,0.45))";
-    wrap.style.animation =
+    inner.style.width = "22px";
+    inner.style.height = "22px";
+    inner.style.transformOrigin = "50% 50%";
+    inner.style.filter = "drop-shadow(0 2px 6px rgba(39,116,174,0.45))";
+    inner.style.animation =
       "fadeUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both";
-    wrap.innerHTML = `
+    inner.innerHTML = `
       <span style="position:absolute;left:-4px;top:-4px;width:30px;height:30px;border-radius:50%;background:#2774AE;opacity:.32;animation:pingPulse 1.8s ease-out infinite;display:block;pointer-events:none;"></span>
       ${USER_SVG}
     `;
   }
+
+  wrap.appendChild(inner);
   return wrap;
 }
