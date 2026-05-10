@@ -24,6 +24,9 @@ import { formatDistance, haversineMeters, normalizeText } from "@/lib/format";
 import BottomSheet from "@/components/BottomSheet";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+const AddPlaceSheet = dynamic(() => import("@/components/AddPlaceSheet"), {
+  ssr: false,
+});
 
 type SortKey = "distance" | "recent" | "name";
 const SORT_LABELS: Record<SortKey, string> = {
@@ -75,7 +78,9 @@ export default function HomePage() {
     return null;
   }, []);
 
-  const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; ts: number } | null>(null);
+  const [flyTo, setFlyTo] = useState<
+    { lat: number; lng: number; ts: number; zoom?: number } | null
+  >(null);
   const [autoCentered, setAutoCentered] = useState(restoredCenter !== null);
   const [sheetHeight, setSheetHeight] = useState(280);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(
@@ -88,6 +93,9 @@ export default function HomePage() {
   const [sort, setSort] = useState<SortKey>("distance");
   const [sortOpen, setSortOpen] = useState(false);
   const [onlyPinned, setOnlyPinned] = useState(false);
+  const [adding, setAdding] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
   const [query, setQuery] = useState("");
   const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
   const [layersOpen, setLayersOpen] = useState(false);
@@ -320,17 +328,38 @@ export default function HomePage() {
         zoom={15}
         mapStyle={mapStyle}
         highlightId={selectedId}
-        onPinClick={(p) => router.push(`/lugar/${p.id}`)}
-        onCenterChange={setMapCenter}
+        centerPin={!!adding}
+        viewportPadding={adding ? { bottom: sheetHeight } : undefined}
+        onPinClick={(p) => {
+          if (adding) return;
+          router.push(`/lugar/${p.id}`);
+        }}
+        onCenterChange={(c) => {
+          setMapCenter(c);
+          if (adding) setAdding(c);
+        }}
         onViewportChange={setViewport}
         onUserDrag={() => setSelectedId(null)}
         onBearingChange={setBearing}
         resetBearing={resetBearing}
-        onLongPress={(pos) =>
-          router.push(`/adicionar?lat=${pos.lat}&lng=${pos.lng}&z=19`)
-        }
+        onLongPress={(pos) => {
+          if (adding) return;
+          setSelectedId(null);
+          setSortOpen(false);
+          setLayersOpen(false);
+          setSearchFocused(false);
+          setQuery("");
+          setAdding({ lat: pos.lat, lng: pos.lng });
+          setFlyTo({
+            lat: pos.lat,
+            lng: pos.lng,
+            ts: Date.now(),
+            zoom: 19,
+          });
+        }}
       />
 
+      {!adding && (
       <div
         style={{
           position: "absolute",
@@ -837,7 +866,9 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+      )}
 
+      {!adding && (
       <div
         style={{
           position: "absolute",
@@ -878,9 +909,19 @@ export default function HomePage() {
           aria-label="Adicionar lugar"
           onClick={() => {
             const c = mapCenter ?? userPosition;
-            router.push(
-              c ? `/adicionar?lat=${c.lat}&lng=${c.lng}` : "/adicionar"
-            );
+            if (!c) return;
+            setSelectedId(null);
+            setSortOpen(false);
+            setLayersOpen(false);
+            setSearchFocused(false);
+            setQuery("");
+            setAdding({ lat: c.lat, lng: c.lng });
+            setFlyTo({
+              lat: c.lat,
+              lng: c.lng,
+              ts: Date.now(),
+              zoom: 18,
+            });
           }}
           style={{
             width: 60,
@@ -898,7 +939,22 @@ export default function HomePage() {
           <IPlus size={28} color="#fff" strokeWidth={2.2} />
         </button>
       </div>
+      )}
 
+      {adding && (
+        <AddPlaceSheet
+          pos={adding}
+          city={city}
+          onCancel={() => setAdding(null)}
+          onSubmitted={(id) => {
+            setAdding(null);
+            router.push(`/lugar/${id}`);
+          }}
+          onHeightChange={setSheetHeight}
+        />
+      )}
+
+      {!adding && (
       <BottomSheet
         defaultSnap="mid"
         onHeightChange={setSheetHeight}
@@ -1185,6 +1241,7 @@ export default function HomePage() {
           )}
         </div>
       </BottomSheet>
+      )}
     </main>
   );
 }
