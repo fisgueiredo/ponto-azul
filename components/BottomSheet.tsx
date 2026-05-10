@@ -5,18 +5,23 @@ export type Snap = "min" | "mid" | "max";
 
 const SAFE_BOTTOM_OFFSET = 56;
 
-function snapHeights(): Record<Snap, number> {
-  if (typeof window === "undefined") return { min: 64, mid: 260, max: 600 };
+function snapHeights(midHeight?: (vh: number) => number): Record<Snap, number> {
+  if (typeof window === "undefined") {
+    return { min: 64, mid: midHeight?.(800) ?? 260, max: 600 };
+  }
   const vh = window.innerHeight;
+  const max = Math.max(360, vh - SAFE_BOTTOM_OFFSET);
+  const mid = midHeight ? midHeight(vh) : Math.max(240, Math.round(vh * 0.32));
   return {
     min: 64,
-    mid: Math.max(240, Math.round(vh * 0.32)),
-    max: Math.max(360, vh - SAFE_BOTTOM_OFFSET),
+    mid: Math.min(mid, max),
+    max,
   };
 }
 
 type Props = {
   defaultSnap?: Snap;
+  midHeight?: (vh: number) => number;
   onHeightChange?: (h: number) => void;
   onSnapChange?: (s: Snap) => void;
   header?: React.ReactNode;
@@ -26,6 +31,7 @@ type Props = {
 
 export default function BottomSheet({
   defaultSnap = "mid",
+  midHeight,
   onHeightChange,
   onSnapChange,
   header,
@@ -50,21 +56,21 @@ export default function BottomSheet({
   );
 
   useEffect(() => {
-    const target = snapHeights()[snap];
+    const target = snapHeights(midHeight)[snap];
     setHeight(target);
     reportHeight(target);
     onSnapChange?.(snap);
-  }, [snap, reportHeight, onSnapChange]);
+  }, [snap, midHeight, reportHeight, onSnapChange]);
 
   useEffect(() => {
     const handler = () => {
-      const target = snapHeights()[snap];
+      const target = snapHeights(midHeight)[snap];
       setHeight(target);
       reportHeight(target);
     };
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
-  }, [snap, reportHeight]);
+  }, [snap, midHeight, reportHeight]);
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     startYRef.current = e.clientY;
@@ -76,7 +82,7 @@ export default function BottomSheet({
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (startYRef.current == null) return;
     const dy = startYRef.current - e.clientY;
-    const heights = snapHeights();
+    const heights = snapHeights(midHeight);
     const next = Math.max(
       heights.min,
       Math.min(heights.max, startHeightRef.current + dy)
@@ -89,7 +95,7 @@ export default function BottomSheet({
     startYRef.current = null;
     setTransitioning(true);
     setDragging(false);
-    const heights = snapHeights();
+    const heights = snapHeights(midHeight);
     const candidates: Snap[] = ["min", "mid", "max"];
     let best: Snap = "mid";
     let bestDist = Infinity;
