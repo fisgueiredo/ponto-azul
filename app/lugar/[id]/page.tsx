@@ -5,9 +5,17 @@ import dynamic from "next/dynamic";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { useReverseGeocode } from "@/lib/hooks/useReverseGeocode";
 import { usePlace } from "@/lib/hooks/usePlaces";
-import { IChevLeft, IShare, INavigate, IMapPin } from "@/components/Icons";
+import {
+  IChevLeft,
+  IShare,
+  INavigate,
+  IMapPin,
+  IEdit,
+  ITrash,
+} from "@/components/Icons";
 import { formatDistance, haversineMeters } from "@/lib/format";
 import { mapsUrl, wazeUrl } from "@/lib/platform";
+import { supabase } from "@/lib/supabase";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -20,6 +28,8 @@ export default function PlaceDetailPage() {
     geo.lat != null && geo.lng != null ? { lat: geo.lat, lng: geo.lng } : null;
   const { address } = useReverseGeocode(place?.lat ?? null, place?.lng ?? null);
   const [toast, setToast] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (loading) {
     return <CenteredMessage text="A carregar…" />;
@@ -64,6 +74,20 @@ export default function PlaceDetailPage() {
     }
   };
 
+  const onDelete = async () => {
+    if (!supabase) return;
+    setDeleting(true);
+    const { error } = await supabase.from("places").delete().eq("id", place.id);
+    if (error) {
+      setToast(`Erro ao eliminar: ${error.message}`);
+      setDeleting(false);
+      setConfirmDelete(false);
+      setTimeout(() => setToast(null), 2500);
+      return;
+    }
+    router.replace("/");
+  };
+
   return (
     <main
       style={{
@@ -106,54 +130,28 @@ export default function PlaceDetailPage() {
       <button
         aria-label="Voltar"
         onClick={() => router.back()}
-        style={{
-          position: "absolute",
-          top: "calc(env(safe-area-inset-top, 0px) + 16px)",
-          left: 16,
-          zIndex: 20,
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          background: "var(--card-glass)",
-          border: "0.5px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          color: "var(--text)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
-        }}
+        style={iconBtn("left")}
       >
         <IChevLeft size={22} />
       </button>
 
-      <button
-        aria-label="Partilhar"
-        onClick={onShare}
+      <div
         style={{
           position: "absolute",
           top: "calc(env(safe-area-inset-top, 0px) + 16px)",
           right: 16,
           zIndex: 20,
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          background: "var(--card-glass)",
-          border: "0.5px solid var(--border)",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          color: "var(--text)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
+          gap: 8,
         }}
       >
-        <IShare size={18} />
-      </button>
+        <button aria-label="Editar" onClick={() => router.push(`/lugar/${place.id}/editar`)} style={iconBtn()}>
+          <IEdit size={18} />
+        </button>
+        <button aria-label="Partilhar" onClick={onShare} style={iconBtn()}>
+          <IShare size={18} />
+        </button>
+      </div>
 
       <div
         className="no-scrollbar"
@@ -172,15 +170,15 @@ export default function PlaceDetailPage() {
           animation: "fadeUp 0.45s cubic-bezier(0.34, 1.4, 0.64, 1)",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            marginBottom: 12,
-          }}
-        >
-          {distance && (
+        {distance && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 12,
+            }}
+          >
             <span
               style={{
                 display: "inline-flex",
@@ -199,8 +197,8 @@ export default function PlaceDetailPage() {
               <IMapPin size={12} color="#2774AE" strokeWidth={2.2} />
               {distance} de si
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         <h1
           style={{
@@ -237,6 +235,29 @@ export default function PlaceDetailPage() {
             {place.description}
           </p>
         )}
+
+        <div style={{ marginTop: 36 }}>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 14px",
+              borderRadius: 12,
+              background: "transparent",
+              border: "0.5px solid rgba(194,57,60,0.35)",
+              color: "#C2393C",
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: -0.1,
+              cursor: "pointer",
+            }}
+          >
+            <ITrash size={15} />
+            Eliminar lugar
+          </button>
+        </div>
       </div>
 
       <div
@@ -318,8 +339,116 @@ export default function PlaceDetailPage() {
           {toast}
         </div>
       )}
+
+      {confirmDelete && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 50,
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            animation: "fadeUp 0.2s ease-out",
+          }}
+          onClick={() => !deleting && setConfirmDelete(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 480,
+              background: "var(--card)",
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding:
+                "24px 20px calc(env(safe-area-inset-bottom, 0px) + 24px)",
+              animation: "fadeUp 0.3s cubic-bezier(0.34, 1.4, 0.64, 1)",
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.3 }}>
+              Eliminar “{place.title}”?
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--muted)",
+                marginTop: 6,
+                lineHeight: 1.4,
+              }}
+            >
+              Esta ação não pode ser desfeita.
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: 14,
+                  background: "transparent",
+                  border: "0.5px solid var(--border)",
+                  color: "var(--text)",
+                  fontSize: 15,
+                  fontWeight: 500,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={onDelete}
+                disabled={deleting}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: 14,
+                  background: "#C2393C",
+                  border: "none",
+                  color: "#fff",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                }}
+              >
+                {deleting ? "A eliminar…" : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
+}
+
+function iconBtn(_pos?: "left"): React.CSSProperties {
+  const base: React.CSSProperties = {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    background: "var(--card-glass)",
+    border: "0.5px solid var(--border)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    color: "var(--text)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
+  };
+  if (_pos === "left") {
+    return {
+      ...base,
+      position: "absolute",
+      top: "calc(env(safe-area-inset-top, 0px) + 16px)",
+      left: 16,
+      zIndex: 20,
+    };
+  }
+  return base;
 }
 
 function CenteredMessage({

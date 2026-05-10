@@ -18,6 +18,8 @@ type Props = {
   onPinClick?: (place: Place) => void;
   draggablePin?: LatLng | null;
   onPinDrag?: (pos: LatLng) => void;
+  centerPin?: boolean;
+  onCenterChange?: (pos: LatLng) => void;
   highlightId?: string | null;
   className?: string;
   style?: React.CSSProperties;
@@ -37,6 +39,8 @@ export default function MapView({
   onPinClick,
   draggablePin = null,
   onPinDrag,
+  centerPin = false,
+  onCenterChange,
   highlightId = null,
   className,
   style,
@@ -48,10 +52,12 @@ export default function MapView({
   const dragMarkerRef = useRef<Marker | null>(null);
   const onPinClickRef = useRef(onPinClick);
   const onPinDragRef = useRef(onPinDrag);
+  const onCenterChangeRef = useRef(onCenterChange);
 
   useEffect(() => {
     onPinClickRef.current = onPinClick;
     onPinDragRef.current = onPinDrag;
+    onCenterChangeRef.current = onCenterChange;
   });
 
   useEffect(() => {
@@ -67,7 +73,13 @@ export default function MapView({
     });
     mapRef.current = map;
     const markers = markersRef.current;
+    const handleMoveEnd = () => {
+      const c = map.getCenter();
+      onCenterChangeRef.current?.({ lat: c.lat, lng: c.lng });
+    };
+    map.on("moveend", handleMoveEnd);
     return () => {
+      map.off("moveend", handleMoveEnd);
       map.remove();
       mapRef.current = null;
       markers.clear();
@@ -161,9 +173,50 @@ export default function MapView({
 
   return (
     <div
-      ref={containerRef}
       className={className}
-      style={{ width: "100%", height: "100%", ...style }}
-    />
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        ...style,
+      }}
+    >
+      <div
+        ref={containerRef}
+        style={{ position: "absolute", inset: 0 }}
+      />
+      {centerPin && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -100%)",
+            pointerEvents: "none",
+            zIndex: 5,
+            width: 44,
+            height: 56,
+            filter: "drop-shadow(0 8px 14px rgba(39,116,174,0.5))",
+            animation: "float 2s ease-in-out infinite",
+          }}
+        >
+          <svg
+            width="44"
+            height="56"
+            viewBox="0 0 32 40"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M16 1 C 8 1 2 7 2 15 C 2 23 11 32 16 38 C 21 32 30 23 30 15 C 30 7 24 1 16 1 Z"
+              fill="#2774AE"
+              stroke="#fff"
+              strokeWidth="2.2"
+            />
+            <circle cx="16" cy="11" r="2.4" fill="#fff" />
+            <path d="M12.5 17 L19.5 17 L18.2 22 L13.8 22 Z" fill="#fff" />
+          </svg>
+        </div>
+      )}
+    </div>
   );
 }
