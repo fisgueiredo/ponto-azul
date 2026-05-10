@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { usePlaces } from "@/lib/hooks/usePlaces";
 import { useReverseGeocode } from "@/lib/hooks/useReverseGeocode";
+import { useForwardGeocode } from "@/lib/hooks/useForwardGeocode";
+import { ForwardGeocodeResult } from "@/lib/geocode";
 import {
   ISearch,
   ISettings,
@@ -17,7 +19,7 @@ import {
   ILayers,
   ICompass,
 } from "@/components/Icons";
-import { formatDistance, normalizeText } from "@/lib/format";
+import { formatDistance, haversineMeters, normalizeText } from "@/lib/format";
 import BottomSheet, { Snap } from "@/components/BottomSheet";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -82,6 +84,15 @@ export default function HomePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bearing, setBearing] = useState(0);
   const [resetBearing, setResetBearing] = useState<{ ts: number } | null>(null);
+  const [searchOrigin, setSearchOrigin] = useState<
+    { lat: number; lng: number; label: string } | null
+  >(null);
+
+  const referencePoint = searchOrigin ?? userPosition;
+  const { results: geoResults, loading: geoLoading } = useForwardGeocode(query, {
+    nearLat: userPosition?.lat ?? null,
+    nearLng: userPosition?.lng ?? null,
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -128,12 +139,23 @@ export default function HomePage() {
     setFlyTo({ ...userPosition, ts: Date.now() });
   };
 
+  const placesWithRefDistance = useMemo(() => {
+    if (!searchOrigin) return places;
+    return places.map((p) => ({
+      ...p,
+      distance_m: haversineMeters(
+        { lat: searchOrigin.lat, lng: searchOrigin.lng },
+        { lat: p.lat, lng: p.lng }
+      ),
+    }));
+  }, [places, searchOrigin]);
+
   const sorted = useMemo(() => {
     const base = query.trim()
-      ? places.filter((p) =>
+      ? placesWithRefDistance.filter((p) =>
           normalizeText(p.title).includes(normalizeText(query.trim()))
         )
-      : places.slice();
+      : placesWithRefDistance.slice();
     if (sort === "name") {
       base.sort((a, b) => a.title.localeCompare(b.title, "pt"));
     } else if (sort === "recent") {
@@ -141,11 +163,28 @@ export default function HomePage() {
         (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-    } else if (sort === "distance" && userPosition) {
+    } else if (sort === "distance" && referencePoint) {
       base.sort((a, b) => (a.distance_m || 0) - (b.distance_m || 0));
     }
     return base;
-  }, [places, query, sort, userPosition]);
+  }, [placesWithRefDistance, query, sort, referencePoint]);
+
+  const handlePickGeocoded = (r: ForwardGeocodeResult) => {
+    const origin = { lat: r.lat, lng: r.lng, label: r.name };
+    setSearchOrigin(origin);
+    setFlyTo({ lat: r.lat, lng: r.lng, ts: Date.now() });
+    setQuery("");
+    setSnap("mid");
+    setSort("distance");
+    setSelectedId(null);
+  };
+
+  const clearSearchOrigin = () => {
+    setSearchOrigin(null);
+    if (userPosition) {
+      setFlyTo({ ...userPosition, ts: Date.now() });
+    }
+  };
 
   return (
     <main
@@ -244,47 +283,99 @@ export default function HomePage() {
             gap: 10,
           }}
         >
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 12px 6px 8px",
-              borderRadius: 999,
-              background: "var(--card-glass)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              border: "0.5px solid var(--border)",
-              fontSize: 12,
-              color: "var(--text)",
-              fontWeight: 500,
-            }}
-          >
-            <span
+          {searchOrigin ? (
+            <div
               style={{
-                width: 18,
-                height: 18,
-                borderRadius: "50%",
-                background: "#2774AE",
                 display: "inline-flex",
                 alignItems: "center",
-                justifyContent: "center",
+                gap: 6,
+                padding: "6px 6px 6px 8px",
+                borderRadius: 999,
+                background: "#2774AE",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 500,
+                maxWidth: "calc(100% - 110px)",
+                boxShadow: "0 4px 12px rgba(20,30,50,0.18)",
               }}
             >
-              <IMapPin size={11} color="#fff" strokeWidth={2.2} />
-            </span>
-            <span>
-              {geo.permission === "denied"
-                ? "GPS desativado"
-                : !userPosition && geo.error
-                  ? "Sem GPS"
-                  : loading
-                    ? "a carregar…"
-                    : `${places.length} ${places.length === 1 ? "lugar" : "lugares"}${
-                        city ? ` em ${city}` : ""
-                      }`}
-            </span>
-          </div>
+              <IMapPin size={12} color="#fff" strokeWidth={2.4} />
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: 180,
+                }}
+                title={searchOrigin.label}
+              >
+                Perto de {searchOrigin.label}
+              </span>
+              <button
+                aria-label="Limpar pesquisa"
+                onClick={clearSearchOrigin}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.22)",
+                  border: "none",
+                  color: "#fff",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  lineHeight: 1,
+                  padding: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 12px 6px 8px",
+                borderRadius: 999,
+                background: "var(--card-glass)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                border: "0.5px solid var(--border)",
+                fontSize: 12,
+                color: "var(--text)",
+                fontWeight: 500,
+              }}
+            >
+              <span
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  background: "#2774AE",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <IMapPin size={11} color="#fff" strokeWidth={2.2} />
+              </span>
+              <span>
+                {geo.permission === "denied"
+                  ? "GPS desativado"
+                  : !userPosition && geo.error
+                    ? "Sem GPS"
+                    : loading
+                      ? "a carregar…"
+                      : `${places.length} ${places.length === 1 ? "lugar" : "lugares"}${
+                          city ? ` em ${city}` : ""
+                        }`}
+              </span>
+            </div>
+          )}
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
@@ -472,9 +563,17 @@ export default function HomePage() {
                   fontWeight: 600,
                   color: "var(--text)",
                   letterSpacing: -0.3,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
+                title={searchOrigin?.label}
               >
-                {places.length === 0 ? "Sem lugares marcados" : "Lugares perto"}
+                {places.length === 0
+                  ? "Sem lugares marcados"
+                  : searchOrigin
+                    ? `Lugares perto de ${searchOrigin.label}`
+                    : "Lugares perto"}
               </div>
               <div
                 style={{
@@ -592,7 +691,7 @@ export default function HomePage() {
               id="sheet-search-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Pesquisar pelo nome…"
+              placeholder="Pesquisar nome ou local…"
               style={{
                 flex: 1,
                 border: "none",
@@ -602,6 +701,139 @@ export default function HomePage() {
                 letterSpacing: -0.1,
               }}
             />
+            {query && (
+              <button
+                aria-label="Limpar"
+                onClick={() => setQuery("")}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--muted)",
+                  cursor: "pointer",
+                  fontSize: 18,
+                  padding: 0,
+                  width: 22,
+                  height: 22,
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
+
+        {snap === "max" && query.trim().length >= 2 && (
+          <div style={{ marginTop: 12 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--muted)",
+                textTransform: "uppercase",
+                letterSpacing: 0.6,
+                padding: "0 4px 6px",
+              }}
+            >
+              Locais {geoLoading && <span style={{ opacity: 0.7 }}>· a procurar…</span>}
+            </div>
+            {geoResults.length === 0 && !geoLoading ? (
+              <div
+                style={{
+                  padding: "10px 8px",
+                  color: "var(--muted)",
+                  fontSize: 13,
+                }}
+              >
+                Sem sugestões de locais.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {geoResults.map((r) => {
+                  const dist = userPosition
+                    ? haversineMeters(userPosition, { lat: r.lat, lng: r.lng })
+                    : null;
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => handlePickGeocoded(r)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "10px 8px",
+                        background: "transparent",
+                        borderRadius: 12,
+                        border: "none",
+                        borderBottom: "0.5px solid var(--border)",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        color: "var(--text)",
+                        width: "100%",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 12,
+                          background: "rgba(39,116,174,0.12)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <ISearch size={16} color="#2774AE" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 15,
+                            fontWeight: 500,
+                            color: "var(--text)",
+                            letterSpacing: -0.2,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {r.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "var(--muted)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            marginTop: 2,
+                          }}
+                        >
+                          {r.context ?? r.type ?? ""}
+                          {dist != null ? ` · ${formatDistance(dist)}` : ""}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {snap === "max" && query.trim().length >= 2 && (
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "var(--muted)",
+              textTransform: "uppercase",
+              letterSpacing: 0.6,
+              padding: "14px 4px 6px",
+            }}
+          >
+            Lugares marcados
           </div>
         )}
 
@@ -616,7 +848,7 @@ export default function HomePage() {
               }}
             >
               {query
-                ? "Nenhum lugar para esta pesquisa."
+                ? "Nenhum lugar marcado para esta pesquisa."
                 : "Sem lugares ainda."}
             </div>
           ) : (
