@@ -6,6 +6,7 @@ export type Place = {
   description: string | null;
   lat: number;
   lng: number;
+  spots: number;
   distance_m: number;
   created_at: string;
 };
