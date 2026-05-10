@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, supabaseConfigured, Place } from "@/lib/supabase";
 import { haversineMeters } from "@/lib/format";
 
-const CACHE_KEY = "pa:places:v2";
-const CACHE_META_KEY = "pa:places:v2:meta";
+export const PLACES_CACHE_KEY = "pa:places:v2";
+export const PLACES_CACHE_META_KEY = "pa:places:v2:meta";
 const FRESH_TTL_MS = 30_000;
 
 type StoredPlace = {
@@ -21,7 +21,7 @@ type StoredPlace = {
 function readCache(): StoredPlace[] | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
+    const raw = window.localStorage.getItem(PLACES_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return null;
@@ -34,7 +34,7 @@ function readCache(): StoredPlace[] | null {
 function readCacheMeta(): { ts: number } | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(CACHE_META_KEY);
+    const raw = window.localStorage.getItem(PLACES_CACHE_META_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as { ts: number };
   } catch {
@@ -45,13 +45,23 @@ function readCacheMeta(): { ts: number } | null {
 function writeCache(places: StoredPlace[]) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(CACHE_KEY, JSON.stringify(places));
+    window.localStorage.setItem(PLACES_CACHE_KEY, JSON.stringify(places));
     window.localStorage.setItem(
-      CACHE_META_KEY,
+      PLACES_CACHE_META_KEY,
       JSON.stringify({ ts: Date.now() })
     );
   } catch {
     // localStorage quota — ignore
+  }
+}
+
+export function invalidatePlacesCache() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(PLACES_CACHE_KEY);
+    window.localStorage.removeItem(PLACES_CACHE_META_KEY);
+  } catch {
+    // ignore
   }
 }
 
@@ -142,13 +152,15 @@ export function usePlaces({
 
   useEffect(() => {
     const meta = readCacheMeta();
-    if (base && meta && Date.now() - meta.ts < FRESH_TTL_MS) {
-      // Cache is fresh — skip refetch on mount.
+    const fresh = base != null && meta != null && Date.now() - meta.ts < FRESH_TTL_MS;
+    if (fresh) {
       setLoading(false);
       return;
     }
     refetch();
-  }, [refetch, base]);
+    // Mount-once: subsequent freshness changes are driven by explicit refetch().
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const places = useMemo(
     () => withDistance(base ?? [], userLat, userLng),

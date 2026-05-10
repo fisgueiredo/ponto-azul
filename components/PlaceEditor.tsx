@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { useReverseGeocode } from "@/lib/hooks/useReverseGeocode";
-import { usePlaces } from "@/lib/hooks/usePlaces";
+import { usePlaces, invalidatePlacesCache } from "@/lib/hooks/usePlaces";
 import {
   IClose,
   ICheck,
@@ -44,6 +44,16 @@ type Props = {
 
 const MIN_SPOTS = 1;
 const MAX_SPOTS = 20;
+
+const PT_BBOX = { south: 36.8, west: -9.6, north: 42.2, east: -6.1 };
+function isInPortugalBbox(lat: number, lng: number): boolean {
+  return (
+    lat >= PT_BBOX.south &&
+    lat <= PT_BBOX.north &&
+    lng >= PT_BBOX.west &&
+    lng <= PT_BBOX.east
+  );
+}
 
 export default function PlaceEditor({ mode, initial }: Props) {
   const router = useRouter();
@@ -152,6 +162,14 @@ export default function PlaceEditor({ mode, initial }: Props) {
       setError("Supabase não configurado");
       return;
     }
+    if (!isInPortugalBbox(pos.lat, pos.lng)) {
+      setError("Localização fora de Portugal");
+      return;
+    }
+    if (spots < MIN_SPOTS || spots > MAX_SPOTS) {
+      setError("Número de lugares inválido");
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -169,11 +187,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
         return;
       }
       setDone(true);
-      try {
-        window.localStorage.removeItem("pa:places:v2");
-      } catch {
-        // ignore
-      }
+      invalidatePlacesCache();
       setTimeout(() => router.replace(`/lugar/${data}`), 700);
     } else if (mode === "edit" && initial) {
       const { error } = await supabase!.rpc("update_place", {
@@ -190,11 +204,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
         return;
       }
       setDone(true);
-      try {
-        window.localStorage.removeItem("pa:places:v2");
-      } catch {
-        // ignore
-      }
+      invalidatePlacesCache();
       setTimeout(() => router.replace(`/lugar/${initial.id}`), 600);
     }
   };

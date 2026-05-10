@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { reverseGeocode } from "@/lib/geocode";
 
-const DEBOUNCE_MS = 200;
+const DEBOUNCE_MS = 500;
 const ROUND_PRECISION = 4;
 
 function round(n: number, p: number): number {
@@ -19,32 +19,32 @@ export function useReverseGeocode(lat: number | null, lng: number | null) {
   const rLng = lng == null ? null : round(lng, ROUND_PRECISION);
 
   useEffect(() => {
-    let cancelled = false;
     if (rLat == null || rLng == null) {
       setCity(null);
       setAddress(null);
       setLoading(false);
       return;
     }
+    const ctrl = new AbortController();
     setLoading(true);
     const handle = window.setTimeout(() => {
-      reverseGeocode(rLat, rLng)
+      reverseGeocode(rLat, rLng, { signal: ctrl.signal })
         .then((res) => {
-          if (cancelled) return;
+          if (ctrl.signal.aborted) return;
           setCity(res.city);
           setAddress(res.address);
         })
         .catch(() => {
-          if (cancelled) return;
+          if (ctrl.signal.aborted) return;
           setCity(null);
           setAddress(null);
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!ctrl.signal.aborted) setLoading(false);
         });
     }, DEBOUNCE_MS);
     return () => {
-      cancelled = true;
+      ctrl.abort();
       window.clearTimeout(handle);
     };
   }, [rLat, rLng]);

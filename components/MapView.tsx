@@ -149,8 +149,14 @@ function MapViewImpl({
     };
     map.on("moveend", handleMoveEnd);
 
+    const VIEWPORT_THROTTLE_MS = 150;
     let viewRaf = 0;
-    const fireViewport = () => {
+    let viewTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastViewAt = 0;
+    let viewPending = false;
+    const emitViewport = () => {
+      lastViewAt = Date.now();
+      viewPending = false;
       if (viewRaf) return;
       viewRaf = requestAnimationFrame(() => {
         viewRaf = 0;
@@ -168,8 +174,24 @@ function MapViewImpl({
         });
       });
     };
-    map.on("move", fireViewport);
-    map.once("load", fireViewport);
+    const scheduleViewport = () => {
+      const now = Date.now();
+      const since = now - lastViewAt;
+      if (since >= VIEWPORT_THROTTLE_MS) {
+        emitViewport();
+        return;
+      }
+      if (viewPending) return;
+      viewPending = true;
+      if (viewTimer) clearTimeout(viewTimer);
+      viewTimer = setTimeout(() => {
+        viewTimer = null;
+        emitViewport();
+      }, VIEWPORT_THROTTLE_MS - since);
+    };
+    map.on("move", scheduleViewport);
+    map.on("moveend", emitViewport);
+    map.once("load", emitViewport);
     let rotateRaf = 0;
     const handleRotate = () => {
       if (rotateRaf) return;
@@ -240,9 +262,11 @@ function MapViewImpl({
       cancelPress();
       if (moveRaf) cancelAnimationFrame(moveRaf);
       if (viewRaf) cancelAnimationFrame(viewRaf);
+      if (viewTimer) clearTimeout(viewTimer);
       if (rotateRaf) cancelAnimationFrame(rotateRaf);
       map.off("moveend", handleMoveEnd);
-      map.off("move", fireViewport);
+      map.off("move", scheduleViewport);
+      map.off("moveend", emitViewport);
       map.off("rotate", handleRotate);
       map.off("rotateend", handleRotate);
       map.off("touchstart", handleTouchStart);
