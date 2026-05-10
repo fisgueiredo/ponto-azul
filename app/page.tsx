@@ -1,11 +1,20 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseConfigured } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { count, error } = await supabase
-    .from("places")
-    .select("*", { count: "exact", head: true });
+  let count: number | null = null;
+  let error: { message: string } | null = null;
+
+  if (!supabaseConfigured) {
+    error = { message: "env vars em falta" };
+  } else {
+    const res = await supabase!
+      .from("places")
+      .select("*", { count: "exact", head: true });
+    count = res.count;
+    error = res.error;
+  }
 
   return (
     <main

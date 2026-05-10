@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 export type Place = {
   id: string;
@@ -10,10 +10,11 @@ export type Place = {
   created_at: string;
 };
 
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: { persistSession: false },
-  }
-);
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+export const supabaseConfigured = Boolean(url && key);
+
+export const supabase: SupabaseClient | null = supabaseConfigured
+  ? createClient(url!, key!, { auth: { persistSession: false } })
+  : null;
