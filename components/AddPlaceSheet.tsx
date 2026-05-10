@@ -156,12 +156,12 @@ export default function AddPlaceSheet({
           fontWeight: 500,
           whiteSpace: "nowrap",
           boxShadow: "0 4px 12px rgba(20,30,50,0.08)",
-          animation: "fadeUp 0.4s ease-out",
+          animation: "fadeUp 0.4s ease-out both",
           zIndex: 20,
         }}
       >
         <IMove size={13} color="var(--muted)" />
-        Arrasta o pino para ajustar
+        Move o mapa para ajustar
       </div>
 
       <BottomSheet
