@@ -200,11 +200,8 @@ export default function PlaceEditor({ mode, initial }: Props) {
   };
 
   const midHeightFn = useMemo(
-    () =>
-      mode === "add"
-        ? (vh: number) => Math.max(440, Math.round(vh * 0.55))
-        : undefined,
-    [mode]
+    () => (vh: number) => Math.max(440, Math.round(vh * 0.55)),
+    []
   );
 
   const headerLabel = mode === "add" ? "Novo lugar" : "Editar lugar";
