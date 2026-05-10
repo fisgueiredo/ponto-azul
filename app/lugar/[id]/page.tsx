@@ -180,7 +180,7 @@ export default function PlaceDetailPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          maxHeight: "50%",
+          maxHeight: "calc(100dvh - env(safe-area-inset-top, 0px) - 72px)",
           background: "var(--bg)",
           borderTopLeftRadius: 32,
           borderTopRightRadius: 32,
@@ -192,11 +192,9 @@ export default function PlaceDetailPage() {
         }}
       >
         <div
-          className="no-scrollbar"
           style={{
-            flex: 1,
-            overflowY: "auto",
             padding: "20px 20px 8px",
+            minHeight: 0,
           }}
         >
         {(distance || place.spots) && (
