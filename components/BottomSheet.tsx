@@ -6,11 +6,11 @@ export type Snap = "min" | "mid" | "max";
 const SAFE_BOTTOM_OFFSET = 56;
 
 function snapHeights(): Record<Snap, number> {
-  if (typeof window === "undefined") return { min: 64, mid: 420, max: 600 };
+  if (typeof window === "undefined") return { min: 64, mid: 260, max: 600 };
   const vh = window.innerHeight;
   return {
     min: 64,
-    mid: Math.max(360, Math.round(vh * 0.5)),
+    mid: Math.max(240, Math.round(vh * 0.32)),
     max: Math.max(360, vh - SAFE_BOTTOM_OFFSET),
   };
 }
