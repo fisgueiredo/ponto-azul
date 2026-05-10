@@ -14,6 +14,7 @@ import {
   IChevDown,
   ICheck,
   ISort,
+  ILayers,
 } from "@/components/Icons";
 import { formatDistance, normalizeText } from "@/lib/format";
 import BottomSheet, { Snap } from "@/components/BottomSheet";
@@ -26,6 +27,13 @@ const SORT_LABELS: Record<SortKey, string> = {
   recent: "Mais recentes",
   name: "Nome (A-Z)",
 };
+
+type MapStyleKind = "standard" | "satellite";
+const MAP_STYLE_LABELS: Record<MapStyleKind, string> = {
+  standard: "Normal",
+  satellite: "Satélite",
+};
+const MAP_STYLE_KEY = "pa:mapStyle";
 
 export default function HomePage() {
   const router = useRouter();
@@ -68,6 +76,28 @@ export default function HomePage() {
   const [sort, setSort] = useState<SortKey>("distance");
   const [sortOpen, setSortOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
+  const [layersOpen, setLayersOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem(MAP_STYLE_KEY);
+      if (saved === "standard" || saved === "satellite") {
+        setMapStyle(saved);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MAP_STYLE_KEY, mapStyle);
+    } catch {
+      // ignore
+    }
+  }, [mapStyle]);
 
   useEffect(() => {
     if (autoCentered || !userPosition) return;
@@ -129,6 +159,7 @@ export default function HomePage() {
         initialCenter={restoredCenter ?? userPosition}
         flyTo={flyTo}
         zoom={15}
+        mapStyle={mapStyle}
         onPinClick={(p) => router.push(`/lugar/${p.id}`)}
         onCenterChange={setMapCenter}
         onLongPress={(pos) =>
@@ -249,6 +280,76 @@ export default function HomePage() {
           transition: "bottom 0.4s cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
+        <div style={{ position: "relative" }}>
+          <button
+            aria-label="Estilo do mapa"
+            aria-expanded={layersOpen}
+            onClick={() => setLayersOpen((o) => !o)}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 16,
+              background: "var(--card-glass)",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+              border: "0.5px solid var(--border)",
+              boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: layersOpen ? "#2774AE" : "var(--text)",
+            }}
+          >
+            <ILayers size={22} />
+          </button>
+          {layersOpen && (
+            <div
+              style={{
+                position: "absolute",
+                right: "calc(100% + 10px)",
+                top: 0,
+                background: "var(--card)",
+                borderRadius: 14,
+                boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+                border: "0.5px solid var(--border)",
+                overflow: "hidden",
+                minWidth: 160,
+                zIndex: 30,
+              }}
+            >
+              {(Object.keys(MAP_STYLE_LABELS) as MapStyleKind[]).map((k, i, arr) => (
+                <button
+                  key={k}
+                  onClick={() => {
+                    setMapStyle(k);
+                    setLayersOpen(false);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                    padding: "12px 14px",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    borderBottom:
+                      i < arr.length - 1
+                        ? "0.5px solid var(--border)"
+                        : "none",
+                    fontSize: 14,
+                    color: "var(--text)",
+                    textAlign: "left",
+                  }}
+                >
+                  <span>{MAP_STYLE_LABELS[k]}</span>
+                  {mapStyle === k && <ICheck size={16} color="#2774AE" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           aria-label="Centrar na minha localização"
           onClick={onLocate}

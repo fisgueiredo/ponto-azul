@@ -1,6 +1,6 @@
 "use client";
 import { memo, useEffect, useRef } from "react";
-import maplibregl, { Map as MLMap, Marker } from "maplibre-gl";
+import maplibregl, { Map as MLMap, Marker, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Place } from "@/lib/supabase";
 import { createPinElement } from "./PinElement";
@@ -8,6 +8,8 @@ import { createPinElement } from "./PinElement";
 type LatLng = { lat: number; lng: number };
 
 type Padding = { top?: number; bottom?: number; left?: number; right?: number };
+
+export type MapStyleKind = "standard" | "satellite";
 
 type Props = {
   places?: Place[];
@@ -17,6 +19,7 @@ type Props = {
   zoom?: number;
   interactive?: boolean;
   showAttribution?: boolean;
+  mapStyle?: MapStyleKind;
   onPinClick?: (place: Place) => void;
   onLongPress?: (pos: LatLng) => void;
   draggablePin?: LatLng | null;
@@ -29,7 +32,34 @@ type Props = {
   style?: React.CSSProperties;
 };
 
-const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const STANDARD_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const SATELLITE_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    "esri-imagery": {
+      type: "raster",
+      tiles: [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      ],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution:
+        "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+    },
+  },
+  layers: [
+    {
+      id: "esri-imagery",
+      type: "raster",
+      source: "esri-imagery",
+    },
+  ],
+};
+
+function styleFor(kind: MapStyleKind): string | StyleSpecification {
+  return kind === "satellite" ? SATELLITE_STYLE : STANDARD_STYLE_URL;
+}
+
 const AVEIRO: LatLng = { lat: 40.6443, lng: -8.6455 };
 
 function MapViewImpl({
@@ -40,6 +70,7 @@ function MapViewImpl({
   zoom = 14,
   interactive = true,
   showAttribution = false,
+  mapStyle = "standard",
   onPinClick,
   onLongPress,
   draggablePin = null,
@@ -73,7 +104,7 @@ function MapViewImpl({
     const initial = initialCenter ?? userPosition ?? AVEIRO;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: STYLE_URL,
+      style: styleFor(mapStyle),
       center: [initial.lng, initial.lat],
       zoom,
       interactive,
@@ -154,6 +185,17 @@ function MapViewImpl({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const isFirstStyleRef = useRef(true);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (isFirstStyleRef.current) {
+      isFirstStyleRef.current = false;
+      return;
+    }
+    map.setStyle(styleFor(mapStyle));
+  }, [mapStyle]);
 
   useEffect(() => {
     const map = mapRef.current;

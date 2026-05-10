@@ -124,6 +124,13 @@ export const IEdit = (p: IconProps) => (
     <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
   </Icon>
 );
+export const ILayers = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m12 2 10 6-10 6L2 8l10-6Z" />
+    <path d="m2 14 10 6 10-6" />
+    <path d="m2 11 10 6 10-6" />
+  </Icon>
+);
 export const ITrash = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" />
