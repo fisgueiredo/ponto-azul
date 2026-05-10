@@ -21,10 +21,25 @@ export default function ListItem({
   const distance = Number.isFinite(place.distance_m)
     ? formatDistance(place.distance_m)
     : null;
+  const ariaLabel = [
+    place.title,
+    distance,
+    address,
+  ]
+    .filter(Boolean)
+    .join(" — ");
 
   return (
     <button
       onClick={onClick}
+      title={place.title}
+      aria-label={ariaLabel}
+      onMouseEnter={(e) => {
+        if (onClick) e.currentTarget.style.background = "rgba(39,116,174,0.06)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
       style={{
         width: "100%",
         display: "flex",
@@ -33,10 +48,12 @@ export default function ListItem({
         padding: compact ? "10px 4px" : "14px 12px",
         background: "transparent",
         border: "none",
+        borderRadius: 12,
         cursor: onClick ? "pointer" : "default",
         textAlign: "left",
         fontFamily: "inherit",
         color: "var(--text)",
+        transition: "background var(--dur-base) var(--ease-out)",
       }}
     >
       <div

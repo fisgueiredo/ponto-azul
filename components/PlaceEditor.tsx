@@ -73,8 +73,43 @@ export default function PlaceEditor({ mode, initial }: Props) {
   const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
   const [layersOpen, setLayersOpen] = useState(false);
   const [showPlaces, setShowPlaces] = useState(true);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const cancelDiscardRef = useRef<HTMLButtonElement | null>(null);
   const userMovedRef = useRef(false);
   const { city } = useReverseGeocode(pos?.lat ?? null, pos?.lng ?? null);
+
+  const dirty = useMemo(() => {
+    if (mode !== "edit" || !initial) return false;
+    if (title !== initial.title) return true;
+    if ((description ?? "") !== (initial.description ?? "")) return true;
+    if (spots !== initial.spots) return true;
+    if (
+      pos &&
+      (Math.abs(pos.lat - initial.lat) > 1e-6 ||
+        Math.abs(pos.lng - initial.lng) > 1e-6)
+    ) {
+      return true;
+    }
+    return false;
+  }, [mode, initial, title, description, spots, pos]);
+
+  const onBack = () => {
+    if (dirty && !submitting && !done) {
+      setConfirmDiscard(true);
+    } else {
+      router.back();
+    }
+  };
+
+  useEffect(() => {
+    if (!confirmDiscard) return;
+    cancelDiscardRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmDiscard(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmDiscard]);
   const { places } = usePlaces();
   const otherPlaces =
     mode === "edit" && initial
@@ -302,31 +337,37 @@ export default function PlaceEditor({ mode, initial }: Props) {
                 zIndex: 30,
               }}
             >
-              {(Object.keys(MAP_STYLE_LABELS) as MapStyleKind[]).map((k) => (
-                <button
-                  key={k}
-                  onClick={() => {
-                    setMapStyle(k);
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    width: "100%",
-                    padding: "12px 14px",
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    borderBottom: "0.5px solid var(--border)",
-                    fontSize: 14,
-                    color: "var(--text)",
-                    textAlign: "left",
-                  }}
-                >
-                  <span>{MAP_STYLE_LABELS[k]}</span>
-                  {mapStyle === k && <ICheck size={16} color="#2774AE" />}
-                </button>
-              ))}
+              {(Object.keys(MAP_STYLE_LABELS) as MapStyleKind[]).map((k) => {
+                const active = mapStyle === k;
+                return (
+                  <button
+                    key={k}
+                    role="menuitemradio"
+                    aria-checked={active}
+                    onClick={() => {
+                      setMapStyle(k);
+                      setLayersOpen(false);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      width: "100%",
+                      padding: "12px 14px",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      borderBottom: "0.5px solid var(--border)",
+                      fontSize: 14,
+                      color: "var(--text)",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span>{MAP_STYLE_LABELS[k]}</span>
+                    {active && <ICheck size={16} color="#2774AE" />}
+                  </button>
+                );
+              })}
               <button
                 onClick={() => setShowPlaces((s) => !s)}
                 style={{
@@ -393,7 +434,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
       >
         <button
           aria-label="Cancelar"
-          onClick={() => router.back()}
+          onClick={onBack}
           style={{
             width: 40,
             height: 40,
@@ -683,6 +724,8 @@ export default function PlaceEditor({ mode, initial }: Props) {
                 <IMinus size={16} />
               </button>
               <span
+                key={spots}
+                aria-live="polite"
                 style={{
                   minWidth: 28,
                   textAlign: "center",
@@ -690,6 +733,8 @@ export default function PlaceEditor({ mode, initial }: Props) {
                   fontSize: 17,
                   fontWeight: 600,
                   letterSpacing: -0.2,
+                  display: "inline-block",
+                  animation: "popIn var(--dur-base) var(--ease-pop)",
                 }}
               >
                 {spots}
@@ -755,6 +800,97 @@ export default function PlaceEditor({ mode, initial }: Props) {
           )}
         </div>
       </BottomSheet>
+
+      {confirmDiscard && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="discard-title"
+          aria-describedby="discard-desc"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            zIndex: 30,
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            animation: "overlayFade 0.22s var(--ease-out) both",
+          }}
+          onClick={() => setConfirmDiscard(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 480,
+              background: "var(--card)",
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding:
+                "24px 20px calc(env(safe-area-inset-bottom, 0px) + 24px)",
+              animation: "sheetSlideUp 0.36s var(--ease-spring) both",
+              boxShadow: "var(--shadow-lg)",
+            }}
+          >
+            <div
+              id="discard-title"
+              style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.3 }}
+            >
+              Descartar alterações?
+            </div>
+            <div
+              id="discard-desc"
+              style={{
+                fontSize: 13,
+                color: "var(--muted)",
+                marginTop: 6,
+                lineHeight: 1.4,
+              }}
+            >
+              Tens alterações por guardar que serão perdidas.
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button
+                ref={cancelDiscardRef}
+                onClick={() => setConfirmDiscard(false)}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: 14,
+                  background: "transparent",
+                  border: "0.5px solid var(--border)",
+                  color: "var(--text)",
+                  fontSize: 15,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Continuar a editar
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmDiscard(false);
+                  router.back();
+                }}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: 14,
+                  background: "var(--error)",
+                  border: "none",
+                  color: "#fff",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

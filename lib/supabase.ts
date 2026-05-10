@@ -23,7 +23,17 @@ export const supabase: SupabaseClient | null = supabaseConfigured
 
 export async function togglePinned(id: string): Promise<boolean | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.rpc("toggle_pinned", { p_id: id });
-  if (error) throw error;
-  return typeof data === "boolean" ? data : null;
+  const delays = [0, 500, 1000];
+  let lastError: unknown = null;
+  for (const delay of delays) {
+    if (delay > 0) {
+      await new Promise((r) => setTimeout(r, delay));
+    }
+    const { data, error } = await supabase.rpc("toggle_pinned", { p_id: id });
+    if (!error) {
+      return typeof data === "boolean" ? data : null;
+    }
+    lastError = error;
+  }
+  throw lastError;
 }

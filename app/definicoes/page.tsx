@@ -1,4 +1,5 @@
 "use client";
+import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme, ThemeChoice } from "@/lib/hooks/useTheme";
 import {
@@ -29,6 +30,24 @@ const OPTIONS: {
 export default function DefinicoesPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const onRadioKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "ArrowLeft" && e.key !== "ArrowRight") {
+      return;
+    }
+    e.preventDefault();
+    const dir = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1;
+    const next = (index + dir + OPTIONS.length) % OPTIONS.length;
+    const target = optionRefs.current[next];
+    if (target) {
+      target.focus();
+      setTheme(OPTIONS[next].id);
+    }
+  };
 
   return (
     <main
@@ -98,9 +117,11 @@ export default function DefinicoesPage() {
           Personaliza a aparência do Ponto Azul. As preferências ficam guardadas neste dispositivo.
         </p>
 
-        <SectionLabel>Aparência</SectionLabel>
+        <SectionLabel id="theme-label">Aparência</SectionLabel>
 
         <div
+          role="radiogroup"
+          aria-labelledby="theme-label"
           style={{
             background: "var(--card)",
             borderRadius: 20,
@@ -114,6 +135,13 @@ export default function DefinicoesPage() {
             return (
               <button
                 key={opt.id}
+                ref={(el) => {
+                  optionRefs.current[i] = el;
+                }}
+                role="radio"
+                aria-checked={active}
+                tabIndex={active ? 0 : -1}
+                onKeyDown={(e) => onRadioKeyDown(e, i)}
                 onClick={() => setTheme(opt.id)}
                 style={{
                   width: "100%",
@@ -128,6 +156,13 @@ export default function DefinicoesPage() {
                   cursor: "pointer",
                   textAlign: "left",
                   color: "var(--text)",
+                  transition: "background var(--dur-base) var(--ease-out)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(39,116,174,0.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
                 }}
               >
                 <div
@@ -140,7 +175,7 @@ export default function DefinicoesPage() {
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
-                    transition: "background 0.2s",
+                    transition: "background var(--dur-base) var(--ease-out)",
                   }}
                 >
                   <Icon size={18} color={active ? "#fff" : "#2774AE"} strokeWidth={1.9} />
@@ -163,6 +198,7 @@ export default function DefinicoesPage() {
                   </div>
                 </div>
                 <div
+                  aria-hidden="true"
                   style={{
                     width: 22,
                     height: 22,
@@ -177,7 +213,17 @@ export default function DefinicoesPage() {
                     flexShrink: 0,
                   }}
                 >
-                  {active && <ICheck size={13} color="#fff" strokeWidth={2.6} />}
+                  {active && (
+                    <span
+                      key={opt.id + "-tick"}
+                      style={{
+                        display: "flex",
+                        animation: "popIn var(--dur-base) var(--ease-pop)",
+                      }}
+                    >
+                      <ICheck size={13} color="#fff" strokeWidth={2.6} />
+                    </span>
+                  )}
                 </div>
               </button>
             );
@@ -233,9 +279,16 @@ export default function DefinicoesPage() {
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({
+  children,
+  id,
+}: {
+  children: React.ReactNode;
+  id?: string;
+}) {
   return (
     <div
+      id={id}
       style={{
         marginTop: 28,
         fontSize: 11,

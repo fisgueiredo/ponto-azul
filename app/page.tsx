@@ -542,6 +542,22 @@ export default function HomePage() {
                   setSearchFocused(false);
                 }, 180);
               }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  if (query) {
+                    setQuery("");
+                  } else {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }
+              }}
+              role="combobox"
+              aria-expanded={
+                searchFocused && query.trim().length >= 2
+              }
+              aria-controls="search-listbox"
+              aria-autocomplete="list"
+              aria-label="Pesquisar lugares e moradas"
               placeholder="Pesquisar nome, cidade ou local…"
               style={{
                 flex: 1,
@@ -606,6 +622,9 @@ export default function HomePage() {
 
           {searchFocused && query.trim().length >= 2 && (
             <div
+              id="search-listbox"
+              role="listbox"
+              aria-label="Resultados da pesquisa"
               onMouseDown={(e) => e.preventDefault()}
               style={{
                 position: "absolute",
@@ -615,7 +634,7 @@ export default function HomePage() {
                 background: "var(--card)",
                 borderRadius: 16,
                 border: "0.5px solid var(--border)",
-                boxShadow: "0 12px 32px rgba(20,30,50,0.18)",
+                boxShadow: "var(--shadow-lg)",
                 overflow: "hidden",
                 maxHeight: "60vh",
                 overflowY: "auto",
@@ -639,6 +658,8 @@ export default function HomePage() {
                   {localMatches.map((p) => (
                     <button
                       key={`local-${p.id}`}
+                      role="option"
+                      aria-selected="false"
                       onClick={() => {
                         setSelectedId(p.id);
                         setFlyTo({ lat: p.lat, lng: p.lng, ts: Date.now() });
@@ -719,8 +740,29 @@ export default function HomePage() {
                 >
                   Locais{" "}
                   {geoLoading && (
-                    <span style={{ opacity: 0.7, fontWeight: 400 }}>
-                      · a procurar…
+                    <span
+                      style={{
+                        opacity: 0.7,
+                        fontWeight: 400,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        marginLeft: 4,
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          border: "1.5px solid currentColor",
+                          borderTopColor: "transparent",
+                          display: "inline-block",
+                          animation: "spin 0.8s linear infinite",
+                        }}
+                      />
+                      a procurar…
                     </span>
                   )}
                 </div>
@@ -745,6 +787,8 @@ export default function HomePage() {
                     return (
                       <button
                         key={`geo-${r.id}`}
+                        role="option"
+                        aria-selected="false"
                         onClick={() => handlePickGeocoded(r)}
                         style={{
                           display: "flex",
@@ -856,9 +900,9 @@ export default function HomePage() {
               }}
             >
               {geo.permission === "denied" && !mapCenter && !viewport
-                ? "GPS desativado"
+                ? "Localização desativada"
                 : !referencePoint && geo.error
-                  ? "Sem GPS"
+                  ? "Sem localização"
                   : loading
                     ? "a carregar…"
                     : (() => {
@@ -965,48 +1009,55 @@ export default function HomePage() {
             </button>
             {layersOpen && (
               <div
+                role="menu"
+                aria-label="Estilo do mapa"
                 style={{
                   position: "absolute",
                   top: "calc(100% + 8px)",
                   right: 0,
                   background: "var(--card)",
                   borderRadius: 14,
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+                  boxShadow: "var(--shadow-lg)",
                   border: "0.5px solid var(--border)",
                   overflow: "hidden",
                   minWidth: 160,
                   zIndex: 30,
                 }}
               >
-                {(Object.keys(MAP_STYLE_LABELS) as MapStyleKind[]).map((k, i, arr) => (
-                  <button
-                    key={k}
-                    onClick={() => {
-                      setMapStyle(k);
-                      setLayersOpen(false);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      width: "100%",
-                      padding: "12px 14px",
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      borderBottom:
-                        i < arr.length - 1
-                          ? "0.5px solid var(--border)"
-                          : "none",
-                      fontSize: 14,
-                      color: "var(--text)",
-                      textAlign: "left",
-                    }}
-                  >
-                    <span>{MAP_STYLE_LABELS[k]}</span>
-                    {mapStyle === k && <ICheck size={16} color="#2774AE" />}
-                  </button>
-                ))}
+                {(Object.keys(MAP_STYLE_LABELS) as MapStyleKind[]).map((k, i, arr) => {
+                  const active = mapStyle === k;
+                  return (
+                    <button
+                      key={k}
+                      role="menuitemradio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setMapStyle(k);
+                        setLayersOpen(false);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        width: "100%",
+                        padding: "12px 14px",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        borderBottom:
+                          i < arr.length - 1
+                            ? "0.5px solid var(--border)"
+                            : "none",
+                        fontSize: 14,
+                        color: "var(--text)",
+                        textAlign: "left",
+                      }}
+                    >
+                      <span>{MAP_STYLE_LABELS[k]}</span>
+                      {active && <ICheck size={16} color="#2774AE" />}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1214,6 +1265,8 @@ export default function HomePage() {
                 </button>
                 {sortOpen && (
                   <div
+                    role="menu"
+                    aria-label="Ordenar lugares"
                     style={{
                       position: "absolute",
                       top: "calc(100% + 6px)",
@@ -1221,41 +1274,46 @@ export default function HomePage() {
                       zIndex: 30,
                       background: "var(--card)",
                       borderRadius: 14,
-                      boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+                      boxShadow: "var(--shadow-lg)",
                       border: "0.5px solid var(--border)",
                       overflow: "hidden",
                       minWidth: 180,
                     }}
                   >
-                    {(Object.keys(SORT_LABELS) as SortKey[]).map((s, i, arr) => (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          setSort(s);
-                          setSortOpen(false);
-                        }}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          width: "100%",
-                          padding: "12px 14px",
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          borderBottom:
-                            i < arr.length - 1
-                              ? "0.5px solid var(--border)"
-                              : "none",
-                          fontSize: 14,
-                          color: "var(--text)",
-                          textAlign: "left",
-                        }}
-                      >
-                        <span>{SORT_LABELS[s]}</span>
-                        {sort === s && <ICheck size={16} color="#2774AE" />}
-                      </button>
-                    ))}
+                    {(Object.keys(SORT_LABELS) as SortKey[]).map((s, i, arr) => {
+                      const active = sort === s;
+                      return (
+                        <button
+                          key={s}
+                          role="menuitemradio"
+                          aria-checked={active}
+                          onClick={() => {
+                            setSort(s);
+                            setSortOpen(false);
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            width: "100%",
+                            padding: "12px 14px",
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            borderBottom:
+                              i < arr.length - 1
+                                ? "0.5px solid var(--border)"
+                                : "none",
+                            fontSize: 14,
+                            color: "var(--text)",
+                            textAlign: "left",
+                          }}
+                        >
+                          <span>{SORT_LABELS[s]}</span>
+                          {active && <ICheck size={16} color="#2774AE" />}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1265,24 +1323,70 @@ export default function HomePage() {
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
           {sorted.length === 0 ? (
-            <div
-              style={{
-                padding: "20px 8px",
-                color: "var(--muted)",
-                fontSize: 14,
-                textAlign: "center",
-              }}
-            >
-              {onlyPinned
-                ? pinnedCount === 0
-                  ? "Sem favoritos ainda. Abre um lugar e toca na estrela."
-                  : "Nenhum favorito corresponde a este filtro."
-                : query
-                  ? "Nenhum lugar marcado para esta pesquisa."
-                  : searchOrigin
-                    ? `Sem lugares marcados perto de ${searchOrigin.label}.`
-                    : "Sem lugares nesta zona."}
-            </div>
+            loading && places.length === 0 ? (
+              <div
+                aria-hidden="true"
+                style={{ display: "flex", flexDirection: "column", gap: 4 }}
+              >
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={`sk-${i}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 8px",
+                      borderBottom: "0.5px solid var(--border)",
+                      animation: `staggerIn 0.22s var(--ease-spring) both`,
+                      animationDelay: `${i * 60}ms`,
+                    }}
+                  >
+                    <div
+                      className="skeleton"
+                      style={{ width: 36, height: 36, borderRadius: 12, flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        className="skeleton"
+                        style={{
+                          height: 12,
+                          width: `${60 + ((i * 7) % 25)}%`,
+                          borderRadius: 6,
+                        }}
+                      />
+                      <div
+                        className="skeleton"
+                        style={{
+                          height: 10,
+                          width: `${35 + ((i * 11) % 20)}%`,
+                          borderRadius: 6,
+                          marginTop: 8,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: "20px 8px",
+                  color: "var(--muted)",
+                  fontSize: 14,
+                  textAlign: "center",
+                }}
+              >
+                {onlyPinned
+                  ? pinnedCount === 0
+                    ? "Sem favoritos ainda. Abre um lugar e toca na estrela."
+                    : "Nenhum favorito corresponde a este filtro."
+                  : query
+                    ? "Nenhum lugar marcado para esta pesquisa."
+                    : searchOrigin
+                      ? `Sem lugares marcados perto de ${searchOrigin.label}.`
+                      : "Sem lugares nesta zona."}
+              </div>
+            )
           ) : (
             <>
               {visibleSorted.map((p, i) => (

@@ -180,7 +180,7 @@ export default function BottomSheet({
         boxShadow: "0 -8px 28px rgba(20,30,50,0.08)",
         zIndex: 14,
         transition: transitioning
-          ? "height 0.4s cubic-bezier(0.32, 0.72, 0, 1)"
+          ? "height var(--dur-slow) var(--ease-spring)"
           : "none",
         willChange: dragging ? "height" : undefined,
         display: "flex",
@@ -193,14 +193,23 @@ export default function BottomSheet({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        role="separator"
+        aria-label="Arrastar para redimensionar"
+        aria-orientation="horizontal"
         style={{
-          padding: "10px 16px 6px",
+          padding: "14px 16px 10px",
+          minHeight: 44,
           touchAction: "none",
-          cursor: "grab",
+          cursor: dragging ? "grabbing" : "grab",
           flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-start",
+          alignItems: "stretch",
         }}
       >
         <div
+          aria-hidden="true"
           style={{
             width: dragging ? 52 : 40,
             height: 5,
@@ -209,7 +218,7 @@ export default function BottomSheet({
               ? "rgba(39,116,174,0.6)"
               : "rgba(0,0,0,0.18)",
             margin: "0 auto",
-            transition: "all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            transition: "all var(--dur-base) var(--ease-pop)",
           }}
         />
         {header && <div style={{ marginTop: 10 }}>{header}</div>}

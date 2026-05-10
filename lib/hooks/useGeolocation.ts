@@ -133,9 +133,19 @@ export function useGeolocation(
       const onError = (err: GeolocationPositionError) => {
         if (cancelled) return;
         const denied = err.code === err.PERMISSION_DENIED;
+        let message: string;
+        if (denied) {
+          message = "permissão de localização negada";
+        } else if (err.code === err.TIMEOUT) {
+          message = "tempo esgotado a obter localização";
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          message = "localização indisponível";
+        } else {
+          message = err.message || "não foi possível obter localização";
+        }
         setState((s) => ({
           ...s,
-          error: err.message || "não foi possível obter localização",
+          error: message,
           loading: false,
           permission: denied ? "denied" : s.permission,
         }));
