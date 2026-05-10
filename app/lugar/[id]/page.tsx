@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { useReverseGeocode } from "@/lib/hooks/useReverseGeocode";
-import { usePlace } from "@/lib/hooks/usePlaces";
+import { usePlace, invalidatePlacesCache } from "@/lib/hooks/usePlaces";
 import {
   IChevLeft,
   IShare,
@@ -50,6 +50,17 @@ export default function PlaceDetailPage() {
       // ignore
     }
   }, []);
+
+  const placeLat = place?.lat;
+  const placeLng = place?.lng;
+  const navMapsUrl = useMemo(
+    () => (placeLat != null && placeLng != null ? mapsUrl(placeLat, placeLng) : ""),
+    [placeLat, placeLng]
+  );
+  const navWazeUrl = useMemo(
+    () => (placeLat != null && placeLng != null ? wazeUrl(placeLat, placeLng) : ""),
+    [placeLat, placeLng]
+  );
 
   if (loading) {
     return <CenteredMessage text="A carregar…" />;
@@ -124,6 +135,9 @@ export default function PlaceDetailPage() {
   const onDelete = async () => {
     if (!supabase) return;
     setDeleting(true);
+    // NOTE: RLS policies on `places` are currently fully open (anon DELETE allowed).
+    // Future hardening requires Supabase auth + per-user ownership policies or a
+    // SECURITY DEFINER `delete_place` RPC. Direct DELETE matches add/update reality.
     const { error } = await supabase.from("places").delete().eq("id", place.id);
     if (error) {
       setToast(`Erro ao eliminar: ${error.message}`);
@@ -132,11 +146,7 @@ export default function PlaceDetailPage() {
       setTimeout(() => setToast(null), 2500);
       return;
     }
-    try {
-      window.localStorage.removeItem("pa:places:v2");
-    } catch {
-      // ignore
-    }
+    invalidatePlacesCache();
     router.replace("/");
   };
 
@@ -336,7 +346,7 @@ export default function PlaceDetailPage() {
           }}
         >
           <a
-            href={mapsUrl(place.lat, place.lng)}
+            href={navMapsUrl}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -359,7 +369,7 @@ export default function PlaceDetailPage() {
             Maps
           </a>
           <a
-            href={wazeUrl(place.lat, place.lng)}
+            href={navWazeUrl}
             target="_blank"
             rel="noopener noreferrer"
             style={{
