@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { reverseGeocode } from "@/lib/geocode";
 
-const DEBOUNCE_MS = 350;
+const DEBOUNCE_MS = 200;
 const ROUND_PRECISION = 4;
 
 function round(n: number, p: number): number {
