@@ -271,6 +271,17 @@ textarea {
   }
 }
 
+@keyframes pressRing {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(5.5);
+    opacity: 0;
+  }
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

@@ -17,7 +17,14 @@ type Props = {
   places?: Place[];
   userPosition?: LatLng | null;
   initialCenter?: LatLng | null;
-  flyTo?: { lat: number; lng: number; ts: number; zoom?: number } | null;
+  flyTo?: {
+    lat: number;
+    lng: number;
+    ts: number;
+    zoom?: number;
+    mode?: "fly" | "ease";
+    duration?: number;
+  } | null;
   zoom?: number;
   interactive?: boolean;
   showAttribution?: boolean;
@@ -28,6 +35,7 @@ type Props = {
   draggablePin?: LatLng | null;
   onPinDrag?: (pos: LatLng) => void;
   centerPin?: boolean;
+  pressFeedback?: { lat: number; lng: number; ts: number } | null;
   onCenterChange?: (pos: LatLng) => void;
   onViewportChange?: (v: { center: LatLng; bounds: Bounds }) => void;
   onBearingChange?: (bearing: number) => void;
@@ -85,6 +93,7 @@ function MapViewImpl({
   draggablePin = null,
   onPinDrag,
   centerPin = false,
+  pressFeedback = null,
   onCenterChange,
   onViewportChange,
   onBearingChange,
@@ -99,6 +108,7 @@ function MapViewImpl({
   const markersRef = useRef<Map<string, Marker>>(new Map());
   const userMarkerRef = useRef<Marker | null>(null);
   const dragMarkerRef = useRef<Marker | null>(null);
+  const pressMarkerRef = useRef<Marker | null>(null);
   const onPinClickRef = useRef(onPinClick);
   const onPinDragRef = useRef(onPinDrag);
   const onCenterChangeRef = useRef(onCenterChange);
@@ -246,6 +256,7 @@ function MapViewImpl({
       markers.clear();
       userMarkerRef.current = null;
       dragMarkerRef.current = null;
+      pressMarkerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -320,25 +331,6 @@ function MapViewImpl({
     }
   }, [userPosition]);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !flyTo) return;
-    map.flyTo({
-      center: [flyTo.lng, flyTo.lat],
-      zoom: flyTo.zoom ?? zoom,
-      bearing: 0,
-      pitch: 0,
-      duration: 520,
-      essential: true,
-    });
-  }, [flyTo, zoom]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !resetBearing) return;
-    map.easeTo({ bearing: 0, pitch: 0, duration: 320 });
-  }, [resetBearing]);
-
   const padTop = viewportPadding?.top ?? 0;
   const padBottom = viewportPadding?.bottom ?? 0;
   const padLeft = viewportPadding?.left ?? 0;
@@ -349,6 +341,73 @@ function MapViewImpl({
     if (!map) return;
     map.setPadding({ top: padTop, bottom: padBottom, left: padLeft, right: padRight });
   }, [padTop, padBottom, padLeft, padRight]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !flyTo) return;
+    const padding = { top: padTop, right: padRight, bottom: padBottom, left: padLeft };
+    if (flyTo.mode === "ease") {
+      map.easeTo({
+        center: [flyTo.lng, flyTo.lat],
+        zoom: flyTo.zoom ?? map.getZoom(),
+        bearing: 0,
+        pitch: 0,
+        duration: flyTo.duration ?? 600,
+        padding,
+        essential: true,
+      });
+    } else {
+      map.flyTo({
+        center: [flyTo.lng, flyTo.lat],
+        zoom: flyTo.zoom ?? zoom,
+        bearing: 0,
+        pitch: 0,
+        duration: flyTo.duration ?? 520,
+        padding,
+        essential: true,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flyTo, zoom]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !resetBearing) return;
+    map.easeTo({ bearing: 0, pitch: 0, duration: 320 });
+  }, [resetBearing]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !pressFeedback) return;
+    const ring = document.createElement("div");
+    ring.style.cssText = [
+      "width:14px",
+      "height:14px",
+      "border-radius:50%",
+      "border:2.5px solid #2774AE",
+      "background:rgba(39,116,174,0.25)",
+      "pointer-events:none",
+      "transform-origin:50% 50%",
+      "animation:pressRing 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both",
+    ].join(";");
+    const marker = new maplibregl.Marker({
+      element: ring,
+      anchor: "center",
+    })
+      .setLngLat([pressFeedback.lng, pressFeedback.lat])
+      .addTo(map);
+    pressMarkerRef.current?.remove();
+    pressMarkerRef.current = marker;
+    const timeout = setTimeout(() => {
+      marker.remove();
+      if (pressMarkerRef.current === marker) pressMarkerRef.current = null;
+    }, 600);
+    return () => {
+      clearTimeout(timeout);
+      marker.remove();
+      if (pressMarkerRef.current === marker) pressMarkerRef.current = null;
+    };
+  }, [pressFeedback]);
 
   useEffect(() => {
     const map = mapRef.current;
