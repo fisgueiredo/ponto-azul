@@ -47,6 +47,7 @@ export default function HomePage() {
   const [autoCentered, setAutoCentered] = useState(false);
   const [sheetHeight, setSheetHeight] = useState(280);
   const [snap, setSnap] = useState<Snap>("mid");
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [sort, setSort] = useState<SortKey>("distance");
   const [sortOpen, setSortOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -103,6 +104,7 @@ export default function HomePage() {
         flyTo={flyTo}
         zoom={15}
         onPinClick={(p) => router.push(`/lugar/${p.id}`)}
+        onCenterChange={setMapCenter}
       />
 
       <div
@@ -243,7 +245,12 @@ export default function HomePage() {
         </button>
         <button
           aria-label="Adicionar lugar"
-          onClick={() => router.push("/adicionar")}
+          onClick={() => {
+            const c = mapCenter ?? userPosition;
+            router.push(
+              c ? `/adicionar?lat=${c.lat}&lng=${c.lng}` : "/adicionar"
+            );
+          }}
           style={{
             width: 60,
             height: 60,
