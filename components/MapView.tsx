@@ -36,22 +36,24 @@ const STANDARD_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
   sources: {
-    "esri-imagery": {
+    "google-satellite": {
       type: "raster",
       tiles: [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        "https://mt0.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        "https://mt2.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        "https://mt3.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
       ],
       tileSize: 256,
-      maxzoom: 19,
-      attribution:
-        "Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+      maxzoom: 20,
+      attribution: "&copy; Google",
     },
   },
   layers: [
     {
-      id: "esri-imagery",
+      id: "google-satellite",
       type: "raster",
-      source: "esri-imagery",
+      source: "google-satellite",
     },
   ],
 };
