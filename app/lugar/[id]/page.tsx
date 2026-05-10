@@ -181,7 +181,7 @@ export default function PlaceDetailPage() {
           borderTopLeftRadius: 32,
           borderTopRightRadius: 32,
           padding:
-            "20px 20px calc(env(safe-area-inset-bottom, 0px) + 110px)",
+            "20px 20px calc(env(safe-area-inset-bottom, 16px) + 120px)",
           overflowY: "auto",
           animation: "fadeUp 0.45s cubic-bezier(0.34, 1.4, 0.64, 1)",
         }}
@@ -255,10 +255,10 @@ export default function PlaceDetailPage() {
 
       <div
         style={{
-          position: "absolute",
+          position: "fixed",
           left: 16,
           right: 16,
-          bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+          bottom: "calc(env(safe-area-inset-bottom, 16px) + 24px)",
           zIndex: 22,
           display: "flex",
           gap: 10,
@@ -315,9 +315,9 @@ export default function PlaceDetailPage() {
       {toast && (
         <div
           style={{
-            position: "absolute",
+            position: "fixed",
             bottom:
-              "calc(env(safe-area-inset-bottom, 0px) + 110px)",
+              "calc(env(safe-area-inset-bottom, 16px) + 110px)",
             left: "50%",
             transform: "translateX(-50%)",
             background: "var(--text)",
@@ -336,7 +336,7 @@ export default function PlaceDetailPage() {
       {confirmDelete && (
         <div
           style={{
-            position: "absolute",
+            position: "fixed",
             inset: 0,
             background: "rgba(0,0,0,0.45)",
             zIndex: 50,
