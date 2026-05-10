@@ -230,40 +230,120 @@ export default function HomePage() {
         <div
           style={{
             marginTop: 10,
-            display: "inline-flex",
+            display: "flex",
             alignItems: "center",
-            gap: 8,
-            padding: "6px 12px 6px 8px",
-            borderRadius: 999,
-            background: "var(--card-glass)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "0.5px solid var(--border)",
-            fontSize: 12,
-            color: "var(--text)",
-            fontWeight: 500,
+            justifyContent: "space-between",
+            gap: 10,
           }}
         >
-          <span
+          <div
             style={{
-              width: 18,
-              height: 18,
-              borderRadius: "50%",
-              background: "#2774AE",
               display: "inline-flex",
               alignItems: "center",
-              justifyContent: "center",
+              gap: 8,
+              padding: "6px 12px 6px 8px",
+              borderRadius: 999,
+              background: "var(--card-glass)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              border: "0.5px solid var(--border)",
+              fontSize: 12,
+              color: "var(--text)",
+              fontWeight: 500,
             }}
           >
-            <IMapPin size={11} color="#fff" strokeWidth={2.2} />
-          </span>
-          <span>
-            {loading
-              ? "a carregar…"
-              : `${places.length} ${places.length === 1 ? "lugar" : "lugares"}${
-                  city ? ` em ${city}` : ""
-                }`}
-          </span>
+            <span
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: "50%",
+                background: "#2774AE",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <IMapPin size={11} color="#fff" strokeWidth={2.2} />
+            </span>
+            <span>
+              {loading
+                ? "a carregar…"
+                : `${places.length} ${places.length === 1 ? "lugar" : "lugares"}${
+                    city ? ` em ${city}` : ""
+                  }`}
+            </span>
+          </div>
+
+          <div style={{ position: "relative" }}>
+            <button
+              aria-label="Estilo do mapa"
+              aria-expanded={layersOpen}
+              onClick={() => setLayersOpen((o) => !o)}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 14,
+                background: "var(--card-glass)",
+                backdropFilter: "blur(18px)",
+                WebkitBackdropFilter: "blur(18px)",
+                border: "0.5px solid var(--border)",
+                boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: layersOpen ? "#2774AE" : "var(--text)",
+              }}
+            >
+              <ILayers size={20} />
+            </button>
+            {layersOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 8px)",
+                  right: 0,
+                  background: "var(--card)",
+                  borderRadius: 14,
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+                  border: "0.5px solid var(--border)",
+                  overflow: "hidden",
+                  minWidth: 160,
+                  zIndex: 30,
+                }}
+              >
+                {(Object.keys(MAP_STYLE_LABELS) as MapStyleKind[]).map((k, i, arr) => (
+                  <button
+                    key={k}
+                    onClick={() => {
+                      setMapStyle(k);
+                      setLayersOpen(false);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      width: "100%",
+                      padding: "12px 14px",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      borderBottom:
+                        i < arr.length - 1
+                          ? "0.5px solid var(--border)"
+                          : "none",
+                      fontSize: 14,
+                      color: "var(--text)",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span>{MAP_STYLE_LABELS[k]}</span>
+                    {mapStyle === k && <ICheck size={16} color="#2774AE" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -280,76 +360,6 @@ export default function HomePage() {
           transition: "bottom 0.4s cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
-        <div style={{ position: "relative" }}>
-          <button
-            aria-label="Estilo do mapa"
-            aria-expanded={layersOpen}
-            onClick={() => setLayersOpen((o) => !o)}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 16,
-              background: "var(--card-glass)",
-              backdropFilter: "blur(18px)",
-              WebkitBackdropFilter: "blur(18px)",
-              border: "0.5px solid var(--border)",
-              boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              color: layersOpen ? "#2774AE" : "var(--text)",
-            }}
-          >
-            <ILayers size={22} />
-          </button>
-          {layersOpen && (
-            <div
-              style={{
-                position: "absolute",
-                right: "calc(100% + 10px)",
-                top: 0,
-                background: "var(--card)",
-                borderRadius: 14,
-                boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
-                border: "0.5px solid var(--border)",
-                overflow: "hidden",
-                minWidth: 160,
-                zIndex: 30,
-              }}
-            >
-              {(Object.keys(MAP_STYLE_LABELS) as MapStyleKind[]).map((k, i, arr) => (
-                <button
-                  key={k}
-                  onClick={() => {
-                    setMapStyle(k);
-                    setLayersOpen(false);
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    width: "100%",
-                    padding: "12px 14px",
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    borderBottom:
-                      i < arr.length - 1
-                        ? "0.5px solid var(--border)"
-                        : "none",
-                    fontSize: 14,
-                    color: "var(--text)",
-                    textAlign: "left",
-                  }}
-                >
-                  <span>{MAP_STYLE_LABELS[k]}</span>
-                  {mapStyle === k && <ICheck size={16} color="#2774AE" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
         <button
           aria-label="Centrar na minha localização"
           onClick={onLocate}
