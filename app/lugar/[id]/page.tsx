@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
@@ -17,8 +17,11 @@ import {
 import { formatDistance, haversineMeters } from "@/lib/format";
 import { mapsUrl, wazeUrl } from "@/lib/platform";
 import { supabase } from "@/lib/supabase";
+import type { MapStyleKind } from "@/components/MapView";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+
+const MAP_STYLE_KEY = "pa:mapStyle";
 
 export default function PlaceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -31,6 +34,19 @@ export default function PlaceDetailPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem(MAP_STYLE_KEY);
+      if (saved === "standard" || saved === "satellite") {
+        setMapStyle(saved);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   if (loading) {
     return <CenteredMessage text="A carregar…" />;
@@ -108,11 +124,7 @@ export default function PlaceDetailPage() {
       <div
         style={{
           position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 320,
-          overflow: "hidden",
+          inset: 0,
         }}
       >
         <MapView
@@ -121,15 +133,7 @@ export default function PlaceDetailPage() {
           zoom={16}
           interactive={false}
           highlightId={place.id}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(to bottom, rgba(0,0,0,0) 60%, var(--bg) 100%)",
-            pointerEvents: "none",
-          }}
+          mapStyle={mapStyle}
         />
       </div>
 
@@ -171,22 +175,30 @@ export default function PlaceDetailPage() {
       </div>
 
       <div
-        className="no-scrollbar"
         style={{
           position: "absolute",
           left: 0,
           right: 0,
-          top: 280,
           bottom: 0,
+          maxHeight: "50%",
           background: "var(--bg)",
           borderTopLeftRadius: 32,
           borderTopRightRadius: 32,
-          padding:
-            "20px 20px calc(env(safe-area-inset-bottom, 16px) + 120px)",
-          overflowY: "auto",
+          boxShadow: "0 -10px 32px rgba(20,30,50,0.18)",
+          display: "flex",
+          flexDirection: "column",
           animation: "fadeUp 0.45s cubic-bezier(0.34, 1.4, 0.64, 1)",
+          zIndex: 15,
         }}
       >
+        <div
+          className="no-scrollbar"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "20px 20px 8px",
+          }}
+        >
         {(distance || place.spots) && (
           <div
             style={{
@@ -275,65 +287,64 @@ export default function PlaceDetailPage() {
             {place.description}
           </p>
         )}
-      </div>
+        </div>
 
-      <div
-        style={{
-          position: "fixed",
-          left: 16,
-          right: 16,
-          bottom: "calc(env(safe-area-inset-bottom, 16px) + 24px)",
-          zIndex: 22,
-          display: "flex",
-          gap: 10,
-        }}
-      >
-        <a
-          href={mapsUrl(place.lat, place.lng)}
-          target="_blank"
-          rel="noopener noreferrer"
+        <div
           style={{
-            flex: 1,
-            padding: "16px 12px",
-            borderRadius: 18,
-            background: "#2774AE",
-            color: "#fff",
-            fontSize: 15,
-            fontWeight: 600,
-            letterSpacing: -0.2,
+            padding:
+              "12px 16px calc(env(safe-area-inset-bottom, 16px) + 16px)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            textDecoration: "none",
+            gap: 10,
+            flexShrink: 0,
           }}
         >
-          <INavigate size={18} color="#fff" strokeWidth={2} />
-          Maps
-        </a>
-        <a
-          href={wazeUrl(place.lat, place.lng)}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            flex: 1,
-            padding: "16px 12px",
-            borderRadius: 18,
-            background: "#33CCFF",
-            color: "#0B2940",
-            fontSize: 15,
-            fontWeight: 700,
-            letterSpacing: -0.2,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            textDecoration: "none",
-          }}
-        >
-          <INavigate size={18} color="#0B2940" strokeWidth={2} />
-          Waze
-        </a>
+          <a
+            href={mapsUrl(place.lat, place.lng)}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              flex: 1,
+              padding: "16px 12px",
+              borderRadius: 18,
+              background: "#2774AE",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              letterSpacing: -0.2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              textDecoration: "none",
+            }}
+          >
+            <INavigate size={18} color="#fff" strokeWidth={2} />
+            Maps
+          </a>
+          <a
+            href={wazeUrl(place.lat, place.lng)}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              flex: 1,
+              padding: "16px 12px",
+              borderRadius: 18,
+              background: "#33CCFF",
+              color: "#0B2940",
+              fontSize: 15,
+              fontWeight: 700,
+              letterSpacing: -0.2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              textDecoration: "none",
+            }}
+          >
+            <INavigate size={18} color="#0B2940" strokeWidth={2} />
+            Waze
+          </a>
+        </div>
       </div>
 
       {toast && (

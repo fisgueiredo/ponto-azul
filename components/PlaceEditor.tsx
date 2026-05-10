@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
@@ -180,6 +180,14 @@ export default function PlaceEditor({ mode, initial }: Props) {
       setTimeout(() => router.replace(`/lugar/${initial.id}`), 600);
     }
   };
+
+  const midHeightFn = useMemo(
+    () =>
+      mode === "add"
+        ? (vh: number) => Math.max(440, Math.round(vh * 0.55))
+        : undefined,
+    [mode]
+  );
 
   const headerLabel = mode === "add" ? "Novo lugar" : "Editar lugar";
   const submitLabel =
@@ -428,6 +436,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
 
       <BottomSheet
         defaultSnap="mid"
+        midHeight={midHeightFn}
         onHeightChange={setSheetHeight}
         header={
           <div>
