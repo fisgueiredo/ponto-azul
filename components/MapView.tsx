@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import maplibregl, { Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Place } from "@/lib/supabase";
@@ -28,7 +28,7 @@ type Props = {
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const AVEIRO: LatLng = { lat: 40.6443, lng: -8.6455 };
 
-export default function MapView({
+function MapViewImpl({
   places = [],
   userPosition = null,
   initialCenter = null,
@@ -220,3 +220,6 @@ export default function MapView({
     </div>
   );
 }
+
+const MapView = memo(MapViewImpl);
+export default MapView;

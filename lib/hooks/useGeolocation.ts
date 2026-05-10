@@ -54,7 +54,7 @@ export function useGeolocation(opts: { watch?: boolean; enabled?: boolean } = {}
     const options: PositionOptions = {
       enableHighAccuracy: true,
       timeout: 15000,
-      maximumAge: 30000,
+      maximumAge: 5 * 60 * 1000,
     };
 
     if (watch) {

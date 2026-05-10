@@ -57,6 +57,11 @@ export default function HomePage() {
     setAutoCentered(true);
   }, [userPosition, autoCentered]);
 
+  useEffect(() => {
+    router.prefetch("/adicionar");
+    router.prefetch("/definicoes");
+  }, [router]);
+
   const onLocate = () => {
     if (!userPosition) return;
     setFlyTo({ ...userPosition, ts: Date.now() });

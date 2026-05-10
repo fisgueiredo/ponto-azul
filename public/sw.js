@@ -1,5 +1,5 @@
-const CACHE = "ponto-azul-v2";
-const SHELL = ["/", "/adicionar", "/definicoes", "/manifest.webmanifest", "/icon.svg"];
+const CACHE = "ponto-azul-v3";
+const SHELL = ["/", "/adicionar", "/definicoes", "/manifest.webmanifest", "/icon.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
