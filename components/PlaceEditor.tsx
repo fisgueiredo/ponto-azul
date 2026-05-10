@@ -4,22 +4,31 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { useReverseGeocode } from "@/lib/hooks/useReverseGeocode";
+import { usePlaces } from "@/lib/hooks/usePlaces";
 import {
   IClose,
   ICheck,
   IMove,
   IMapPin,
   ILocate,
+  ILayers,
   IPlus,
   IMinus,
   ICar,
 } from "@/components/Icons";
 import BottomSheet from "@/components/BottomSheet";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
+import type { MapStyleKind } from "@/components/MapView";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
 const AVEIRO = { lat: 40.6443, lng: -8.6455 };
+const MAP_STYLE_KEY = "pa:mapStyle";
+const MAP_STYLE_LABELS: Record<MapStyleKind, string> = {
+  standard: "Normal",
+  satellite: "Satélite",
+};
+const SHOW_PLACES_KEY = "pa:editorShowPlaces";
 
 type Props = {
   mode: "add" | "edit";
@@ -43,6 +52,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
     initial ? { lat: initial.lat, lng: initial.lng } : null
   );
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; ts: number } | null>(null);
+  const [initialZoom, setInitialZoom] = useState<number>(18);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [spots, setSpots] = useState<number>(initial?.spots ?? 1);
@@ -50,13 +60,55 @@ export default function PlaceEditor({ mode, initial }: Props) {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sheetHeight, setSheetHeight] = useState(0);
+  const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [showPlaces, setShowPlaces] = useState(true);
   const { city } = useReverseGeocode(pos?.lat ?? null, pos?.lng ?? null);
+  const { places } = usePlaces();
+  const otherPlaces =
+    mode === "edit" && initial
+      ? places.filter((p) => p.id !== initial.id)
+      : places;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem(MAP_STYLE_KEY);
+      if (saved === "standard" || saved === "satellite") {
+        setMapStyle(saved);
+      }
+      const savedShow = window.localStorage.getItem(SHOW_PLACES_KEY);
+      if (savedShow === "0") setShowPlaces(false);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MAP_STYLE_KEY, mapStyle);
+    } catch {
+      // ignore
+    }
+  }, [mapStyle]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SHOW_PLACES_KEY, showPlaces ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }, [showPlaces]);
 
   useEffect(() => {
     if (pos || mode !== "add") return;
     const params = new URLSearchParams(window.location.search);
     const lat = parseFloat(params.get("lat") ?? "");
     const lng = parseFloat(params.get("lng") ?? "");
+    const z = parseFloat(params.get("z") ?? "");
+    if (Number.isFinite(z)) {
+      setInitialZoom(Math.max(18, Math.min(20, z)));
+    }
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
       setPos({ lat, lng });
       return;
@@ -148,47 +200,144 @@ export default function PlaceEditor({ mode, initial }: Props) {
     >
       {pos && (
         <MapView
+          places={showPlaces ? otherPlaces : []}
           initialCenter={pos}
           flyTo={flyTo}
-          zoom={16}
+          zoom={initialZoom}
           interactive
+          mapStyle={mapStyle}
           centerPin
           onCenterChange={(next) => setPos(next)}
           viewportPadding={{ bottom: sheetHeight }}
         />
       )}
 
-      {mode === "add" && (
-        <button
-          aria-label="Centrar na minha localização"
-          onClick={onLocateMe}
-          disabled={geo.lat == null || geo.lng == null}
-          style={{
-            position: "absolute",
-            right: 16,
-            bottom: sheetHeight + 16,
-            zIndex: 12,
-            width: 48,
-            height: 48,
-            borderRadius: 16,
-            background: "var(--card-glass)",
-            backdropFilter: "blur(18px)",
-            WebkitBackdropFilter: "blur(18px)",
-            border: "0.5px solid var(--border)",
-            boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor:
-              geo.lat != null && geo.lng != null ? "pointer" : "default",
-            opacity: geo.lat != null && geo.lng != null ? 1 : 0.5,
-            color: "var(--text)",
-            transition: "bottom 0.4s cubic-bezier(0.32, 0.72, 0, 1)",
-          }}
-        >
-          <ILocate size={22} />
-        </button>
-      )}
+      <div
+        style={{
+          position: "absolute",
+          right: 16,
+          bottom: sheetHeight + 16,
+          zIndex: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          alignItems: "flex-end",
+          transition: "bottom 0.4s cubic-bezier(0.32, 0.72, 0, 1)",
+        }}
+      >
+        <div style={{ position: "relative" }}>
+          <button
+            aria-label="Estilo do mapa"
+            aria-expanded={layersOpen}
+            onClick={() => setLayersOpen((o) => !o)}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 16,
+              background: "var(--card-glass)",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+              border: "0.5px solid var(--border)",
+              boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: layersOpen ? "#2774AE" : "var(--text)",
+            }}
+          >
+            <ILayers size={22} />
+          </button>
+          {layersOpen && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + 8px)",
+                right: 0,
+                background: "var(--card)",
+                borderRadius: 14,
+                boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+                border: "0.5px solid var(--border)",
+                overflow: "hidden",
+                minWidth: 180,
+                zIndex: 30,
+              }}
+            >
+              {(Object.keys(MAP_STYLE_LABELS) as MapStyleKind[]).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => {
+                    setMapStyle(k);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                    padding: "12px 14px",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    borderBottom: "0.5px solid var(--border)",
+                    fontSize: 14,
+                    color: "var(--text)",
+                    textAlign: "left",
+                  }}
+                >
+                  <span>{MAP_STYLE_LABELS[k]}</span>
+                  {mapStyle === k && <ICheck size={16} color="#2774AE" />}
+                </button>
+              ))}
+              <button
+                onClick={() => setShowPlaces((s) => !s)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  padding: "12px 14px",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  color: "var(--text)",
+                  textAlign: "left",
+                }}
+              >
+                <span>Mostrar lugares</span>
+                {showPlaces && <ICheck size={16} color="#2774AE" />}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {mode === "add" && (
+          <button
+            aria-label="Centrar na minha localização"
+            onClick={onLocateMe}
+            disabled={geo.lat == null || geo.lng == null}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 16,
+              background: "var(--card-glass)",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+              border: "0.5px solid var(--border)",
+              boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor:
+                geo.lat != null && geo.lng != null ? "pointer" : "default",
+              opacity: geo.lat != null && geo.lng != null ? 1 : 0.5,
+              color: "var(--text)",
+            }}
+          >
+            <ILocate size={22} />
+          </button>
+        )}
+      </div>
 
       <div
         style={{
