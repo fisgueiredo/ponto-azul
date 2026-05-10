@@ -80,7 +80,14 @@ export default function HomePage() {
   }, []);
 
   const [flyTo, setFlyTo] = useState<
-    { lat: number; lng: number; ts: number; zoom?: number } | null
+    {
+      lat: number;
+      lng: number;
+      ts: number;
+      zoom?: number;
+      mode?: "fly" | "ease";
+      duration?: number;
+    } | null
   >(null);
   const [autoCentered, setAutoCentered] = useState(restoredCenter !== null);
   const [sheetHeight, setSheetHeight] = useState(280);
@@ -97,6 +104,9 @@ export default function HomePage() {
   const [adding, setAdding] = useState<{ lat: number; lng: number } | null>(
     null
   );
+  const [pressFeedback, setPressFeedback] = useState<
+    { lat: number; lng: number; ts: number } | null
+  >(null);
   const [query, setQuery] = useState("");
   const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
   const [layersOpen, setLayersOpen] = useState(false);
@@ -162,6 +172,30 @@ export default function HomePage() {
   const onLocate = () => {
     if (!userPosition) return;
     setFlyTo({ ...userPosition, ts: Date.now() });
+  };
+
+  const startAdding = (pos: { lat: number; lng: number }) => {
+    if (adding) return;
+    setSelectedId(null);
+    setSortOpen(false);
+    setLayersOpen(false);
+    setSearchFocused(false);
+    setQuery("");
+    // Pre-set the bottom padding to the form sheet's target height so the
+    // camera ease lands the pin above the sheet from frame 0.
+    const target = Math.max(440, Math.round(window.innerHeight * 0.55));
+    setSheetHeight(target);
+    const ts = Date.now();
+    setAdding({ lat: pos.lat, lng: pos.lng });
+    setPressFeedback({ lat: pos.lat, lng: pos.lng, ts });
+    setFlyTo({
+      lat: pos.lat,
+      lng: pos.lng,
+      ts,
+      mode: "ease",
+      zoom: 17.5,
+      duration: 620,
+    });
   };
 
   const placesWithRefDistance = useMemo(() => {
@@ -330,35 +364,22 @@ export default function HomePage() {
         zoom={15}
         mapStyle={mapStyle}
         highlightId={selectedId}
-        centerPin={!!adding}
+        draggablePin={adding}
+        onPinDrag={(p) => setAdding(p)}
+        pressFeedback={pressFeedback}
         viewportPadding={adding ? { bottom: sheetHeight } : undefined}
         onPinClick={(p) => {
           if (adding) return;
           router.push(`/lugar/${p.id}`);
         }}
-        onCenterChange={(c) => {
-          setMapCenter(c);
-          if (adding) setAdding(c);
-        }}
+        onCenterChange={setMapCenter}
         onViewportChange={setViewport}
-        onUserDrag={() => setSelectedId(null)}
+        onUserDrag={() => {
+          if (!adding) setSelectedId(null);
+        }}
         onBearingChange={setBearing}
         resetBearing={resetBearing}
-        onLongPress={(pos) => {
-          if (adding) return;
-          setSelectedId(null);
-          setSortOpen(false);
-          setLayersOpen(false);
-          setSearchFocused(false);
-          setQuery("");
-          setAdding({ lat: pos.lat, lng: pos.lng });
-          setFlyTo({
-            lat: pos.lat,
-            lng: pos.lng,
-            ts: Date.now(),
-            zoom: 19,
-          });
-        }}
+        onLongPress={startAdding}
       />
 
       {!adding && (
@@ -912,18 +933,7 @@ export default function HomePage() {
           onClick={() => {
             const c = mapCenter ?? userPosition;
             if (!c) return;
-            setSelectedId(null);
-            setSortOpen(false);
-            setLayersOpen(false);
-            setSearchFocused(false);
-            setQuery("");
-            setAdding({ lat: c.lat, lng: c.lng });
-            setFlyTo({
-              lat: c.lat,
-              lng: c.lng,
-              ts: Date.now(),
-              zoom: 18,
-            });
+            startAdding(c);
           }}
           style={{
             width: 60,

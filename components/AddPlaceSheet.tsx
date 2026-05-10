@@ -161,7 +161,7 @@ export default function AddPlaceSheet({
         }}
       >
         <IMove size={13} color="var(--muted)" />
-        Mexe o mapa para ajustar
+        Arrasta o pino para ajustar
       </div>
 
       <BottomSheet
