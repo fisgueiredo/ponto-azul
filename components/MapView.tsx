@@ -252,7 +252,11 @@ function MapViewImpl({
         e.stopPropagation();
         onPinClickRef.current?.(p);
       });
-      const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
+      const marker = new maplibregl.Marker({
+        element: el,
+        anchor: "bottom",
+        offset: [0, 2],
+      })
         .setLngLat([p.lng, p.lat])
         .addTo(map);
       existing.set(p.id, marker);
@@ -330,6 +334,7 @@ function MapViewImpl({
       const marker = new maplibregl.Marker({
         element: el,
         anchor: "bottom",
+        offset: [0, 2],
         draggable: true,
       })
         .setLngLat([draggablePin.lng, draggablePin.lat])
@@ -364,7 +369,7 @@ function MapViewImpl({
             position: "absolute",
             top: `calc(50% + ${(padTop - padBottom) / 2}px)`,
             left: `calc(50% + ${(padLeft - padRight) / 2}px)`,
-            transform: "translate(-50%, -100%)",
+            transform: "translate(-50%, calc(-100% + 2.8px))",
             pointerEvents: "none",
             zIndex: 5,
             width: 44,
