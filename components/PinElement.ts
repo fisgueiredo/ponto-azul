@@ -1,0 +1,45 @@
+export type PinKind = "place" | "user";
+
+const PLACE_SVG = `
+<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+  <path d="M16 1 C 8 1 2 7 2 15 C 2 23 11 32 16 38 C 21 32 30 23 30 15 C 30 7 24 1 16 1 Z" fill="#2774AE" stroke="#fff" stroke-width="2"/>
+  <circle cx="16" cy="11" r="2.2" fill="#fff"/>
+  <path d="M12.5 17 L19.5 17 L18.2 22 L13.8 22 Z" fill="#fff"/>
+</svg>`;
+
+const USER_SVG = `
+<svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="11" cy="11" r="9" fill="#2774AE" stroke="#fff" stroke-width="3"/>
+</svg>`;
+
+export function createPinElement(
+  kind: PinKind = "place",
+  opts: { active?: boolean } = {}
+): HTMLDivElement {
+  const wrap = document.createElement("div");
+  wrap.style.position = "relative";
+  wrap.style.cursor = "pointer";
+  wrap.style.transformOrigin = "50% 100%";
+
+  if (kind === "place") {
+    wrap.style.width = "32px";
+    wrap.style.height = "40px";
+    wrap.style.filter = opts.active
+      ? "drop-shadow(0 4px 8px rgba(39,116,174,0.4))"
+      : "drop-shadow(0 2px 3px rgba(0,0,0,0.18))";
+    wrap.innerHTML = `
+      <span style="position:absolute;left:4px;top:4px;width:24px;height:24px;border-radius:50%;background:#2774AE;opacity:.35;animation:pingPulse 1.8s ease-out infinite;display:block;pointer-events:none;"></span>
+      ${PLACE_SVG}
+    `;
+  } else {
+    wrap.style.width = "22px";
+    wrap.style.height = "22px";
+    wrap.style.transformOrigin = "50% 50%";
+    wrap.style.filter = "drop-shadow(0 2px 6px rgba(39,116,174,0.45))";
+    wrap.innerHTML = `
+      <span style="position:absolute;left:-4px;top:-4px;width:30px;height:30px;border-radius:50%;background:#2774AE;opacity:.32;animation:pingPulse 1.8s ease-out infinite;display:block;pointer-events:none;"></span>
+      ${USER_SVG}
+    `;
+  }
+  return wrap;
+}

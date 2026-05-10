@@ -8,6 +8,11 @@
   --primary: #2774ae;
   --confirm: #00af54;
   --card: #fbf8ef;
+  --card-glass: rgba(251, 248, 239, 0.92);
+  --shadow-soft: 0 6px 20px rgba(20, 30, 50, 0.08);
+  --shadow-fab: 0 10px 24px rgba(39, 116, 174, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color-scheme: light;
 }
 
 [data-theme="dark"] {
@@ -16,6 +21,9 @@
   --muted: rgba(255, 255, 255, 0.55);
   --border: rgba(255, 255, 255, 0.08);
   --card: #222730;
+  --card-glass: rgba(40, 44, 52, 0.92);
+  --shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -40,6 +48,27 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* Suppress MapLibre default UI we don't use */
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.55) !important;
+}
+[data-theme="dark"] .maplibregl-ctrl-attrib {
+  background: rgba(0, 0, 0, 0.35) !important;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 *,
