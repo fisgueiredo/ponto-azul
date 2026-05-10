@@ -6,6 +6,7 @@ import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { usePlaces } from "@/lib/hooks/usePlaces";
 import { useReverseGeocode } from "@/lib/hooks/useReverseGeocode";
 import { useForwardGeocode } from "@/lib/hooks/useForwardGeocode";
+import { useFlipList } from "@/lib/hooks/useFlipList";
 import { ForwardGeocodeResult } from "@/lib/geocode";
 import {
   ISearch,
@@ -106,6 +107,7 @@ export default function HomePage() {
     { lat: number; lng: number; label: string } | null
   >(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const registerFlip = useFlipList();
 
   const referencePoint = viewport?.center ?? mapCenter ?? searchOrigin ?? userPosition;
   const { city } = useReverseGeocode(
@@ -1151,6 +1153,7 @@ export default function HomePage() {
             sorted.map((p, i) => (
               <button
                 key={p.id}
+                ref={registerFlip(p.id)}
                 onClick={() => {
                   if (selectedId === p.id) {
                     router.push(`/lugar/${p.id}`);
