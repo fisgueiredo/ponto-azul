@@ -38,6 +38,12 @@ const MAP_STYLE_LABELS: Record<MapStyleKind, string> = {
 };
 const MAP_STYLE_KEY = "pa:mapStyle";
 
+type Bounds = { south: number; north: number; west: number; east: number };
+
+function isInBounds(p: { lat: number; lng: number }, b: Bounds) {
+  return p.lat >= b.south && p.lat <= b.north && p.lng >= b.west && p.lng <= b.east;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const geo = useGeolocation();
@@ -74,6 +80,10 @@ export default function HomePage() {
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(
     restoredCenter
   );
+  const [viewport, setViewport] = useState<{
+    center: { lat: number; lng: number };
+    bounds: Bounds;
+  } | null>(null);
   const [sort, setSort] = useState<SortKey>("distance");
   const [sortOpen, setSortOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -87,7 +97,7 @@ export default function HomePage() {
   >(null);
   const [searchFocused, setSearchFocused] = useState(false);
 
-  const referencePoint = mapCenter ?? searchOrigin ?? userPosition;
+  const referencePoint = viewport?.center ?? mapCenter ?? searchOrigin ?? userPosition;
   const { city } = useReverseGeocode(
     referencePoint?.lat ?? null,
     referencePoint?.lng ?? null
@@ -153,22 +163,51 @@ export default function HomePage() {
     }));
   }, [places, referencePoint]);
 
-  const localMatches = useMemo(() => {
+  const queryMatchedIds = useMemo(() => {
     const q = query.trim();
-    if (!q) return [];
+    if (!q) return null;
     const n = normalizeText(q);
+    const ids = new Set<string>();
+    for (const p of placesWithRefDistance) {
+      if (normalizeText(p.title).includes(n)) ids.add(p.id);
+    }
+    if (geoResults.length > 0) {
+      for (const r of geoResults) {
+        if (!r.bbox) continue;
+        const [latS, latN, lonW, lonE] = r.bbox;
+        const dLat = latN - latS;
+        const dLng = lonE - lonW;
+        if (!Number.isFinite(dLat) || !Number.isFinite(dLng)) continue;
+        // Skip absurdly large boxes (e.g. country-level matches) — keep matching practical.
+        if (dLat > 1.5 || dLng > 1.5) continue;
+        for (const p of placesWithRefDistance) {
+          if (ids.has(p.id)) continue;
+          if (
+            p.lat >= latS &&
+            p.lat <= latN &&
+            p.lng >= lonW &&
+            p.lng <= lonE
+          ) {
+            ids.add(p.id);
+          }
+        }
+      }
+    }
+    return ids;
+  }, [placesWithRefDistance, query, geoResults]);
+
+  const localMatches = useMemo(() => {
+    if (!queryMatchedIds || queryMatchedIds.size === 0) return [];
     return placesWithRefDistance
-      .filter((p) => normalizeText(p.title).includes(n))
+      .filter((p) => queryMatchedIds.has(p.id))
       .slice()
       .sort((a, b) => (a.distance_m || 0) - (b.distance_m || 0))
-      .slice(0, 4);
-  }, [placesWithRefDistance, query]);
+      .slice(0, 8);
+  }, [placesWithRefDistance, queryMatchedIds]);
 
   const sorted = useMemo(() => {
-    const base = query.trim()
-      ? placesWithRefDistance.filter((p) =>
-          normalizeText(p.title).includes(normalizeText(query.trim()))
-        )
+    const base = queryMatchedIds
+      ? placesWithRefDistance.filter((p) => queryMatchedIds.has(p.id))
       : placesWithRefDistance.slice();
     if (sort === "name") {
       base.sort((a, b) => a.title.localeCompare(b.title, "pt"));
@@ -181,23 +220,58 @@ export default function HomePage() {
       base.sort((a, b) => (a.distance_m || 0) - (b.distance_m || 0));
     }
     return base;
-  }, [placesWithRefDistance, query, sort, referencePoint]);
+  }, [placesWithRefDistance, queryMatchedIds, sort, referencePoint]);
 
   const NEAR_RADIUS_M = 5000;
-  const nearbyCount = useMemo(() => {
-    if (!referencePoint) return placesWithRefDistance.length;
-    return placesWithRefDistance.filter(
-      (p) => Number.isFinite(p.distance_m) && p.distance_m <= NEAR_RADIUS_M
-    ).length;
-  }, [placesWithRefDistance, referencePoint]);
+  const expandedBounds = useMemo<Bounds | null>(() => {
+    if (!viewport) return null;
+    const b = viewport.bounds;
+    const dLat = (b.north - b.south) * 0.6;
+    const dLng = (b.east - b.west) * 0.6;
+    return {
+      south: b.south - dLat,
+      north: b.north + dLat,
+      west: b.west - dLng,
+      east: b.east + dLng,
+    };
+  }, [viewport]);
 
-  const filteredNearbyCount = useMemo(() => {
-    if (!query.trim()) return nearbyCount;
-    if (!referencePoint) return sorted.length;
-    return sorted.filter(
-      (p) => Number.isFinite(p.distance_m) && p.distance_m <= NEAR_RADIUS_M
-    ).length;
-  }, [sorted, query, nearbyCount, referencePoint]);
+  const visibleCount = useMemo(() => {
+    if (!viewport) return 0;
+    const list = queryMatchedIds
+      ? placesWithRefDistance.filter((p) => queryMatchedIds.has(p.id))
+      : placesWithRefDistance;
+    let n = 0;
+    for (const p of list) {
+      if (isInBounds(p, viewport.bounds)) n++;
+    }
+    return n;
+  }, [viewport, placesWithRefDistance, queryMatchedIds]);
+
+  const nearbyExtraCount = useMemo(() => {
+    if (!viewport || !expandedBounds) return 0;
+    const list = queryMatchedIds
+      ? placesWithRefDistance.filter((p) => queryMatchedIds.has(p.id))
+      : placesWithRefDistance;
+    let n = 0;
+    for (const p of list) {
+      if (isInBounds(p, viewport.bounds)) continue;
+      if (isInBounds(p, expandedBounds)) n++;
+    }
+    return n;
+  }, [viewport, expandedBounds, placesWithRefDistance, queryMatchedIds]);
+
+  const radiusFallbackCount = useMemo(() => {
+    if (!referencePoint) return placesWithRefDistance.length;
+    const list = queryMatchedIds
+      ? placesWithRefDistance.filter((p) => queryMatchedIds.has(p.id))
+      : placesWithRefDistance;
+    let n = 0;
+    for (const p of list) {
+      if (Number.isFinite(p.distance_m) && p.distance_m <= NEAR_RADIUS_M) n++;
+    }
+    return n;
+  }, [referencePoint, placesWithRefDistance, queryMatchedIds]);
 
   const handlePickGeocoded = (r: ForwardGeocodeResult) => {
     const origin = { lat: r.lat, lng: r.lng, label: r.name };
@@ -238,6 +312,7 @@ export default function HomePage() {
         highlightId={selectedId}
         onPinClick={(p) => router.push(`/lugar/${p.id}`)}
         onCenterChange={setMapCenter}
+        onViewportChange={setViewport}
         onUserDrag={() => setSelectedId(null)}
         onBearingChange={setBearing}
         resetBearing={resetBearing}
@@ -594,21 +669,32 @@ export default function HomePage() {
                 whiteSpace: "nowrap",
               }}
             >
-              {geo.permission === "denied" && !mapCenter
+              {geo.permission === "denied" && !mapCenter && !viewport
                 ? "GPS desativado"
                 : !referencePoint && geo.error
                   ? "Sem GPS"
                   : loading
                     ? "a carregar…"
-                    : `${filteredNearbyCount} ${
-                        filteredNearbyCount === 1 ? "lugar" : "lugares"
-                      }${
-                        searchOrigin
-                          ? ` perto de ${searchOrigin.label}`
+                    : (() => {
+                        if (searchOrigin) {
+                          const n = radiusFallbackCount;
+                          return `${n} ${n === 1 ? "lugar" : "lugares"} perto de ${searchOrigin.label}`;
+                        }
+                        const primary = viewport ? visibleCount : radiusFallbackCount;
+                        const word = primary === 1 ? "lugar" : "lugares";
+                        const where = viewport
+                          ? city
+                            ? ` em ${city}`
+                            : " aqui"
                           : city
                             ? ` em ${city}`
-                            : ""
-                      }`}
+                            : "";
+                        const extra =
+                          viewport && nearbyExtraCount > 0
+                            ? ` · +${nearbyExtraCount} perto`
+                            : "";
+                        return `${primary} ${word}${where}${extra}`;
+                      })()}
             </span>
             {searchOrigin && (
               <button

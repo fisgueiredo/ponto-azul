@@ -11,6 +11,8 @@ type Padding = { top?: number; bottom?: number; left?: number; right?: number };
 
 export type MapStyleKind = "standard" | "satellite";
 
+export type Bounds = { south: number; north: number; west: number; east: number };
+
 type Props = {
   places?: Place[];
   userPosition?: LatLng | null;
@@ -27,6 +29,7 @@ type Props = {
   onPinDrag?: (pos: LatLng) => void;
   centerPin?: boolean;
   onCenterChange?: (pos: LatLng) => void;
+  onViewportChange?: (v: { center: LatLng; bounds: Bounds }) => void;
   onBearingChange?: (bearing: number) => void;
   resetBearing?: { ts: number } | null;
   viewportPadding?: Padding;
@@ -83,6 +86,7 @@ function MapViewImpl({
   onPinDrag,
   centerPin = false,
   onCenterChange,
+  onViewportChange,
   onBearingChange,
   resetBearing = null,
   viewportPadding,
@@ -98,6 +102,7 @@ function MapViewImpl({
   const onPinClickRef = useRef(onPinClick);
   const onPinDragRef = useRef(onPinDrag);
   const onCenterChangeRef = useRef(onCenterChange);
+  const onViewportChangeRef = useRef(onViewportChange);
   const onBearingChangeRef = useRef(onBearingChange);
   const onLongPressRef = useRef(onLongPress);
   const onUserDragRef = useRef(onUserDrag);
@@ -105,6 +110,7 @@ function MapViewImpl({
   onPinClickRef.current = onPinClick;
   onPinDragRef.current = onPinDrag;
   onCenterChangeRef.current = onCenterChange;
+  onViewportChangeRef.current = onViewportChange;
   onBearingChangeRef.current = onBearingChange;
   onLongPressRef.current = onLongPress;
   onUserDragRef.current = onUserDrag;
@@ -132,6 +138,28 @@ function MapViewImpl({
       });
     };
     map.on("moveend", handleMoveEnd);
+
+    let viewRaf = 0;
+    const fireViewport = () => {
+      if (viewRaf) return;
+      viewRaf = requestAnimationFrame(() => {
+        viewRaf = 0;
+        if (!onViewportChangeRef.current) return;
+        const c = map.getCenter();
+        const b = map.getBounds();
+        onViewportChangeRef.current({
+          center: { lat: c.lat, lng: c.lng },
+          bounds: {
+            south: b.getSouth(),
+            north: b.getNorth(),
+            west: b.getWest(),
+            east: b.getEast(),
+          },
+        });
+      });
+    };
+    map.on("move", fireViewport);
+    map.once("load", fireViewport);
     let rotateRaf = 0;
     const handleRotate = () => {
       if (rotateRaf) return;
@@ -201,8 +229,10 @@ function MapViewImpl({
     return () => {
       cancelPress();
       if (moveRaf) cancelAnimationFrame(moveRaf);
+      if (viewRaf) cancelAnimationFrame(viewRaf);
       if (rotateRaf) cancelAnimationFrame(rotateRaf);
       map.off("moveend", handleMoveEnd);
+      map.off("move", fireViewport);
       map.off("rotate", handleRotate);
       map.off("rotateend", handleRotate);
       map.off("touchstart", handleTouchStart);
