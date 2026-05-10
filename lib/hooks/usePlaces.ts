@@ -1,9 +1,11 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, supabaseConfigured, Place } from "@/lib/supabase";
 import { haversineMeters } from "@/lib/format";
 
 const CACHE_KEY = "pa:places:v2";
+const CACHE_META_KEY = "pa:places:v2:meta";
+const FRESH_TTL_MS = 30_000;
 
 type StoredPlace = {
   id: string;
@@ -28,13 +30,48 @@ function readCache(): StoredPlace[] | null {
   }
 }
 
+function readCacheMeta(): { ts: number } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(CACHE_META_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as { ts: number };
+  } catch {
+    return null;
+  }
+}
+
 function writeCache(places: StoredPlace[]) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(CACHE_KEY, JSON.stringify(places));
+    window.localStorage.setItem(
+      CACHE_META_KEY,
+      JSON.stringify({ ts: Date.now() })
+    );
   } catch {
     // localStorage quota — ignore
   }
+}
+
+function placesIdentical(a: StoredPlace[], b: StoredPlace[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (
+      x.id !== y.id ||
+      x.title !== y.title ||
+      x.description !== y.description ||
+      x.lat !== y.lat ||
+      x.lng !== y.lng ||
+      x.spots !== y.spots ||
+      x.created_at !== y.created_at
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function withDistance(
@@ -43,15 +80,22 @@ function withDistance(
   userLng: number | null | undefined
 ): Place[] {
   if (userLat == null || userLng == null) {
-    return base.map((p) => ({ ...p, distance_m: Number.NaN }));
+    const out = new Array<Place>(base.length);
+    for (let i = 0; i < base.length; i++) {
+      out[i] = { ...base[i], distance_m: Number.NaN };
+    }
+    return out;
   }
   const u = { lat: userLat, lng: userLng };
-  return base
-    .map((p) => ({
+  const out = new Array<Place>(base.length);
+  for (let i = 0; i < base.length; i++) {
+    const p = base[i];
+    out[i] = {
       ...p,
       distance_m: haversineMeters(u, { lat: p.lat, lng: p.lng }),
-    }))
-    .sort((a, b) => a.distance_m - b.distance_m);
+    };
+  }
+  return out;
 }
 
 export function usePlaces({
@@ -61,6 +105,7 @@ export function usePlaces({
   const [base, setBase] = useState<StoredPlace[] | null>(() => readCache());
   const [loading, setLoading] = useState<boolean>(base == null);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRef = useRef<Promise<void> | null>(null);
 
   const refetch = useCallback(async () => {
     if (!supabaseConfigured) {
@@ -68,25 +113,40 @@ export function usePlaces({
       setLoading(false);
       return;
     }
-    setError(null);
-    const { data, error } = await supabase!
-      .from("places_with_coords")
-      .select("id, title, description, lat, lng, spots, created_at")
-      .order("created_at", { ascending: false });
-    if (error) {
-      setError(error.message);
+    if (inFlightRef.current) return inFlightRef.current;
+    const p = (async () => {
+      setError(null);
+      const { data, error } = await supabase!
+        .from("places_with_coords")
+        .select("id, title, description, lat, lng, spots, created_at")
+        .order("created_at", { ascending: false });
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+      const next = (data ?? []) as StoredPlace[];
+      setBase((prev) => (prev && placesIdentical(prev, next) ? prev : next));
+      writeCache(next);
       setLoading(false);
-      return;
+    })();
+    inFlightRef.current = p;
+    try {
+      await p;
+    } finally {
+      inFlightRef.current = null;
     }
-    const next = (data ?? []) as StoredPlace[];
-    setBase(next);
-    writeCache(next);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
+    const meta = readCacheMeta();
+    if (base && meta && Date.now() - meta.ts < FRESH_TTL_MS) {
+      // Cache is fresh — skip refetch on mount.
+      setLoading(false);
+      return;
+    }
     refetch();
-  }, [refetch]);
+  }, [refetch, base]);
 
   const places = useMemo(
     () => withDistance(base ?? [], userLat, userLng),

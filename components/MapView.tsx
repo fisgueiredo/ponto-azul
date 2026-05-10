@@ -102,14 +102,12 @@ function MapViewImpl({
   const onLongPressRef = useRef(onLongPress);
   const onUserDragRef = useRef(onUserDrag);
 
-  useEffect(() => {
-    onPinClickRef.current = onPinClick;
-    onPinDragRef.current = onPinDrag;
-    onCenterChangeRef.current = onCenterChange;
-    onBearingChangeRef.current = onBearingChange;
-    onLongPressRef.current = onLongPress;
-    onUserDragRef.current = onUserDrag;
-  });
+  onPinClickRef.current = onPinClick;
+  onPinDragRef.current = onPinDrag;
+  onCenterChangeRef.current = onCenterChange;
+  onBearingChangeRef.current = onBearingChange;
+  onLongPressRef.current = onLongPress;
+  onUserDragRef.current = onUserDrag;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -124,13 +122,23 @@ function MapViewImpl({
     });
     mapRef.current = map;
     const markers = markersRef.current;
+    let moveRaf = 0;
     const handleMoveEnd = () => {
-      const c = map.getCenter();
-      onCenterChangeRef.current?.({ lat: c.lat, lng: c.lng });
+      if (moveRaf) cancelAnimationFrame(moveRaf);
+      moveRaf = requestAnimationFrame(() => {
+        moveRaf = 0;
+        const c = map.getCenter();
+        onCenterChangeRef.current?.({ lat: c.lat, lng: c.lng });
+      });
     };
     map.on("moveend", handleMoveEnd);
+    let rotateRaf = 0;
     const handleRotate = () => {
-      onBearingChangeRef.current?.(map.getBearing());
+      if (rotateRaf) return;
+      rotateRaf = requestAnimationFrame(() => {
+        rotateRaf = 0;
+        onBearingChangeRef.current?.(map.getBearing());
+      });
     };
     map.on("rotate", handleRotate);
     map.on("rotateend", handleRotate);
@@ -192,6 +200,8 @@ function MapViewImpl({
 
     return () => {
       cancelPress();
+      if (moveRaf) cancelAnimationFrame(moveRaf);
+      if (rotateRaf) cancelAnimationFrame(rotateRaf);
       map.off("moveend", handleMoveEnd);
       map.off("rotate", handleRotate);
       map.off("rotateend", handleRotate);
@@ -230,7 +240,10 @@ function MapViewImpl({
       seen.add(p.id);
       const prev = existing.get(p.id);
       if (prev) {
-        prev.setLngLat([p.lng, p.lat]);
+        const ll = prev.getLngLat();
+        if (ll.lng !== p.lng || ll.lat !== p.lat) {
+          prev.setLngLat([p.lng, p.lat]);
+        }
         setPinActive(prev.getElement() as HTMLDivElement, p.id === highlightId);
         continue;
       }
@@ -266,7 +279,10 @@ function MapViewImpl({
         .setLngLat([userPosition.lng, userPosition.lat])
         .addTo(map);
     } else {
-      userMarkerRef.current.setLngLat([userPosition.lng, userPosition.lat]);
+      const ll = userMarkerRef.current.getLngLat();
+      if (ll.lng !== userPosition.lng || ll.lat !== userPosition.lat) {
+        userMarkerRef.current.setLngLat([userPosition.lng, userPosition.lat]);
+      }
     }
   }, [userPosition]);
 
@@ -278,14 +294,15 @@ function MapViewImpl({
       zoom,
       bearing: 0,
       pitch: 0,
-      duration: 800,
+      duration: 520,
+      essential: true,
     });
   }, [flyTo, zoom]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !resetBearing) return;
-    map.easeTo({ bearing: 0, pitch: 0, duration: 400 });
+    map.easeTo({ bearing: 0, pitch: 0, duration: 320 });
   }, [resetBearing]);
 
   const padTop = viewportPadding?.top ?? 0;

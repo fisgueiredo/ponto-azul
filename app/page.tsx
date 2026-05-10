@@ -645,9 +645,9 @@ export default function HomePage() {
                   textAlign: "left",
                   color: "var(--text)",
                   width: "100%",
-                  animation: `staggerIn 0.32s cubic-bezier(0.32, 0.72, 0, 1) both`,
-                  animationDelay: `${Math.min(i, 12) * 28}ms`,
-                  transition: "background 0.2s ease",
+                  animation: `staggerIn 0.22s cubic-bezier(0.32, 0.72, 0, 1) both`,
+                  animationDelay: `${Math.min(i, 8) * 18}ms`,
+                  transition: "background 0.18s ease",
                 }}
               >
                 <div
