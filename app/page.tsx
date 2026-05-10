@@ -15,6 +15,7 @@ import {
   ICheck,
   ISort,
   ILayers,
+  ICompass,
 } from "@/components/Icons";
 import { formatDistance, normalizeText } from "@/lib/format";
 import BottomSheet, { Snap } from "@/components/BottomSheet";
@@ -79,6 +80,8 @@ export default function HomePage() {
   const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
   const [layersOpen, setLayersOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [bearing, setBearing] = useState(0);
+  const [resetBearing, setResetBearing] = useState<{ ts: number } | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -165,6 +168,8 @@ export default function HomePage() {
         onPinClick={(p) => router.push(`/lugar/${p.id}`)}
         onCenterChange={setMapCenter}
         onUserDrag={() => setSelectedId(null)}
+        onBearingChange={setBearing}
+        resetBearing={resetBearing}
         onLongPress={(pos) =>
           router.push(`/adicionar?lat=${pos.lat}&lng=${pos.lng}&z=19`)
         }
@@ -277,7 +282,38 @@ export default function HomePage() {
             </span>
           </div>
 
-          <div style={{ position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              aria-label="Orientar a norte"
+              onClick={() => setResetBearing({ ts: Date.now() })}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 14,
+                background: "var(--card-glass)",
+                backdropFilter: "blur(18px)",
+                WebkitBackdropFilter: "blur(18px)",
+                border: "0.5px solid var(--border)",
+                boxShadow: "0 4px 12px rgba(20,30,50,0.10)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "var(--text)",
+                padding: 0,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  transform: `rotate(${-bearing}deg)`,
+                  transition: "transform 0.2s",
+                }}
+              >
+                <ICompass size={20} />
+              </span>
+            </button>
+            <div style={{ position: "relative" }}>
             <button
               aria-label="Estilo do mapa"
               aria-expanded={layersOpen}
@@ -346,6 +382,7 @@ export default function HomePage() {
                 ))}
               </div>
             )}
+          </div>
           </div>
         </div>
       </div>
