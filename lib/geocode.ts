@@ -19,6 +19,36 @@ const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const FWD_CACHE_PREFIX = "pa:geo:fwd:";
 const FWD_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 
+const REQUEST_TIMEOUT_MS = 8000;
+const MIN_SPACING_MS = 1100;
+
+let lastFireAt = 0;
+let queueTail: Promise<unknown> = Promise.resolve();
+
+function scheduleNominatim<T>(task: () => Promise<T>): Promise<T> {
+  const run = async () => {
+    const now = Date.now();
+    const wait = Math.max(0, MIN_SPACING_MS - (now - lastFireAt));
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastFireAt = Date.now();
+    return task();
+  };
+  const next = queueTail.then(run, run);
+  queueTail = next.catch(() => {});
+  return next;
+}
+
+function timeoutSignal(ms: number, external?: AbortSignal): AbortSignal {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  if (external) {
+    if (external.aborted) ctrl.abort();
+    else external.addEventListener("abort", () => ctrl.abort(), { once: true });
+  }
+  ctrl.signal.addEventListener("abort", () => clearTimeout(t), { once: true });
+  return ctrl.signal;
+}
+
 function cacheKey(lat: number, lng: number) {
   return `${CACHE_PREFIX}${lat.toFixed(4)},${lng.toFixed(4)}`;
 }
@@ -42,7 +72,8 @@ function splitDisplayName(displayName: string): { name: string; context: string 
 
 export async function reverseGeocode(
   lat: number,
-  lng: number
+  lng: number,
+  options: { signal?: AbortSignal } = {}
 ): Promise<ReverseGeocodeResult> {
   if (typeof window !== "undefined") {
     try {
@@ -65,9 +96,13 @@ export async function reverseGeocode(
   url.searchParams.set("accept-language", "pt-PT");
   url.searchParams.set("zoom", "18");
 
-  const res = await fetch(url.toString(), {
-    headers: { "Accept-Language": "pt-PT" },
-  });
+  const signal = timeoutSignal(REQUEST_TIMEOUT_MS, options.signal);
+  const res = await scheduleNominatim(() =>
+    fetch(url.toString(), {
+      headers: { "Accept-Language": "pt-PT" },
+      signal,
+    })
+  );
   if (!res.ok) return { city: null, address: null };
 
   const data = (await res.json()) as {
@@ -147,10 +182,13 @@ export async function forwardGeocode(
     url.searchParams.set("bounded", "0");
   }
 
-  const res = await fetch(url.toString(), {
-    headers: { "Accept-Language": "pt-PT" },
-    signal: options.signal,
-  });
+  const signal = timeoutSignal(REQUEST_TIMEOUT_MS, options.signal);
+  const res = await scheduleNominatim(() =>
+    fetch(url.toString(), {
+      headers: { "Accept-Language": "pt-PT" },
+      signal,
+    })
+  );
   if (!res.ok) return [];
 
   const data = (await res.json()) as Array<{
