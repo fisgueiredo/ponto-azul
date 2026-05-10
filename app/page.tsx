@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
@@ -23,11 +23,114 @@ import {
 } from "@/components/Icons";
 import { formatDistance, haversineMeters, normalizeText } from "@/lib/format";
 import BottomSheet from "@/components/BottomSheet";
+import type { Place } from "@/lib/supabase";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 const AddPlaceSheet = dynamic(() => import("@/components/AddPlaceSheet"), {
   ssr: false,
 });
+
+const VISIBLE_LIST_LIMIT = 80;
+
+type PlaceRowProps = {
+  place: Place;
+  index: number;
+  selected: boolean;
+  onPick: (p: Place) => void;
+  flipRef: (el: HTMLElement | null) => void;
+};
+// Not memo'd: useFlipList returns a fresh ref-callback per render which would
+// defeat shallow-equality anyway. Extraction still keeps the render concise.
+function PlaceRow({
+  place,
+  index,
+  selected,
+  onPick,
+  flipRef,
+}: PlaceRowProps) {
+  return (
+    <button
+      ref={flipRef}
+      onClick={() => onPick(place)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "10px 8px",
+        background: selected ? "rgba(39,116,174,0.10)" : "transparent",
+        borderRadius: 12,
+        border: "none",
+        borderBottom: "0.5px solid var(--border)",
+        cursor: "pointer",
+        textAlign: "left",
+        color: "var(--text)",
+        width: "100%",
+        animation: `staggerIn 0.22s cubic-bezier(0.32, 0.72, 0, 1) both`,
+        animationDelay: `${Math.min(index, 8) * 18}ms`,
+        transition: "background 0.18s ease",
+      }}
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 12,
+          background: "rgba(39,116,174,0.12)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <IMapPin size={18} color="#2774AE" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            minWidth: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 15,
+              fontWeight: 500,
+              color: "var(--text)",
+              letterSpacing: -0.2,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              minWidth: 0,
+            }}
+          >
+            {place.title}
+          </span>
+          {place.pinned && (
+            <IStar
+              size={13}
+              filled
+              color="#E0A82E"
+              strokeWidth={1.4}
+              style={{ flexShrink: 0 }}
+            />
+          )}
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--muted)",
+            fontFamily: "var(--font-geist-mono)",
+            marginTop: 2,
+          }}
+        >
+          {Number.isFinite(place.distance_m) ? formatDistance(place.distance_m) : "—"}
+        </div>
+      </div>
+    </button>
+  );
+}
 
 type SortKey = "distance" | "recent" | "name";
 const SORT_LABELS: Record<SortKey, string> = {
@@ -120,6 +223,11 @@ export default function HomePage() {
   const registerFlip = useFlipList();
 
   const referencePoint = viewport?.center ?? mapCenter ?? searchOrigin ?? userPosition;
+  const distanceOrigin = useMemo<{ lat: number; lng: number } | null>(() => {
+    if (searchOrigin) return { lat: searchOrigin.lat, lng: searchOrigin.lng };
+    if (userPosition) return userPosition;
+    return null;
+  }, [searchOrigin, userPosition]);
   const { city } = useReverseGeocode(
     referencePoint?.lat ?? null,
     referencePoint?.lng ?? null
@@ -128,6 +236,8 @@ export default function HomePage() {
     nearLat: referencePoint?.lat ?? null,
     nearLng: referencePoint?.lng ?? null,
   });
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const blurTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -198,23 +308,22 @@ export default function HomePage() {
     });
   };
 
-  const placesWithRefDistance = useMemo(() => {
-    if (!referencePoint) return places;
+  // Distance is computed against a STABLE origin (search target or user position),
+  // not the moving viewport center. This keeps the home page snappy during panning.
+  const placesWithDist = useMemo(() => {
+    if (!distanceOrigin) return places;
     return places.map((p) => ({
       ...p,
-      distance_m: haversineMeters(
-        { lat: referencePoint.lat, lng: referencePoint.lng },
-        { lat: p.lat, lng: p.lng }
-      ),
+      distance_m: haversineMeters(distanceOrigin, { lat: p.lat, lng: p.lng }),
     }));
-  }, [places, referencePoint]);
+  }, [places, distanceOrigin]);
 
   const queryMatchedIds = useMemo(() => {
     const q = query.trim();
     if (!q) return null;
     const n = normalizeText(q);
     const ids = new Set<string>();
-    for (const p of placesWithRefDistance) {
+    for (const p of placesWithDist) {
       if (normalizeText(p.title).includes(n)) ids.add(p.id);
     }
     if (geoResults.length > 0) {
@@ -224,9 +333,8 @@ export default function HomePage() {
         const dLat = latN - latS;
         const dLng = lonE - lonW;
         if (!Number.isFinite(dLat) || !Number.isFinite(dLng)) continue;
-        // Skip absurdly large boxes (e.g. country-level matches) — keep matching practical.
         if (dLat > 1.5 || dLng > 1.5) continue;
-        for (const p of placesWithRefDistance) {
+        for (const p of placesWithDist) {
           if (ids.has(p.id)) continue;
           if (
             p.lat >= latS &&
@@ -240,24 +348,25 @@ export default function HomePage() {
       }
     }
     return ids;
-  }, [placesWithRefDistance, query, geoResults]);
+  }, [placesWithDist, query, geoResults]);
+
+  const filteredList = useMemo(() => {
+    if (!queryMatchedIds) return placesWithDist;
+    return placesWithDist.filter((p) => queryMatchedIds.has(p.id));
+  }, [placesWithDist, queryMatchedIds]);
 
   const localMatches = useMemo(() => {
     if (!queryMatchedIds || queryMatchedIds.size === 0) return [];
-    return placesWithRefDistance
-      .filter((p) => queryMatchedIds.has(p.id))
+    return filteredList
       .slice()
       .sort((a, b) => (a.distance_m || 0) - (b.distance_m || 0))
       .slice(0, 8);
-  }, [placesWithRefDistance, queryMatchedIds]);
+  }, [filteredList, queryMatchedIds]);
 
   const sorted = useMemo(() => {
-    let base = queryMatchedIds
-      ? placesWithRefDistance.filter((p) => queryMatchedIds.has(p.id))
-      : placesWithRefDistance.slice();
-    if (onlyPinned) {
-      base = base.filter((p) => p.pinned);
-    }
+    const base = onlyPinned
+      ? filteredList.filter((p) => p.pinned)
+      : filteredList.slice();
     if (sort === "name") {
       base.sort((a, b) => a.title.localeCompare(b.title, "pt"));
     } else if (sort === "recent") {
@@ -265,86 +374,94 @@ export default function HomePage() {
         (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-    } else if (sort === "distance" && referencePoint) {
+    } else if (sort === "distance" && distanceOrigin) {
       base.sort((a, b) => (a.distance_m || 0) - (b.distance_m || 0));
     }
     return base;
-  }, [placesWithRefDistance, queryMatchedIds, sort, referencePoint, onlyPinned]);
+  }, [filteredList, sort, distanceOrigin, onlyPinned]);
+
+  const visibleSorted = useMemo(
+    () => sorted.slice(0, VISIBLE_LIST_LIMIT),
+    [sorted]
+  );
 
   const pinnedCount = useMemo(
-    () => placesWithRefDistance.filter((p) => p.pinned).length,
-    [placesWithRefDistance]
+    () => placesWithDist.filter((p) => p.pinned).length,
+    [placesWithDist]
   );
 
   const NEAR_RADIUS_M = 5000;
-  const expandedBounds = useMemo<Bounds | null>(() => {
-    if (!viewport) return null;
+
+  // Single-pass viewport count: visible (in bounds) + nearby (in expanded bounds only).
+  const viewportCounts = useMemo(() => {
+    if (!viewport) return { visible: 0, nearby: 0 };
     const b = viewport.bounds;
     const dLat = (b.north - b.south) * 0.6;
     const dLng = (b.east - b.west) * 0.6;
-    return {
+    const eb: Bounds = {
       south: b.south - dLat,
       north: b.north + dLat,
       west: b.west - dLng,
       east: b.east + dLng,
     };
-  }, [viewport]);
-
-  const visibleCount = useMemo(() => {
-    if (!viewport) return 0;
-    const list = queryMatchedIds
-      ? placesWithRefDistance.filter((p) => queryMatchedIds.has(p.id))
-      : placesWithRefDistance;
-    let n = 0;
-    for (const p of list) {
-      if (isInBounds(p, viewport.bounds)) n++;
+    let visible = 0;
+    let nearby = 0;
+    for (const p of filteredList) {
+      if (isInBounds(p, b)) visible++;
+      else if (isInBounds(p, eb)) nearby++;
     }
-    return n;
-  }, [viewport, placesWithRefDistance, queryMatchedIds]);
-
-  const nearbyExtraCount = useMemo(() => {
-    if (!viewport || !expandedBounds) return 0;
-    const list = queryMatchedIds
-      ? placesWithRefDistance.filter((p) => queryMatchedIds.has(p.id))
-      : placesWithRefDistance;
-    let n = 0;
-    for (const p of list) {
-      if (isInBounds(p, viewport.bounds)) continue;
-      if (isInBounds(p, expandedBounds)) n++;
-    }
-    return n;
-  }, [viewport, expandedBounds, placesWithRefDistance, queryMatchedIds]);
+    return { visible, nearby };
+  }, [viewport, filteredList]);
 
   const radiusFallbackCount = useMemo(() => {
-    if (!referencePoint) return placesWithRefDistance.length;
-    const list = queryMatchedIds
-      ? placesWithRefDistance.filter((p) => queryMatchedIds.has(p.id))
-      : placesWithRefDistance;
+    if (!distanceOrigin) return filteredList.length;
     let n = 0;
-    for (const p of list) {
+    for (const p of filteredList) {
       if (Number.isFinite(p.distance_m) && p.distance_m <= NEAR_RADIUS_M) n++;
     }
     return n;
-  }, [referencePoint, placesWithRefDistance, queryMatchedIds]);
+  }, [distanceOrigin, filteredList]);
 
-  const handlePickGeocoded = (r: ForwardGeocodeResult) => {
-    const origin = { lat: r.lat, lng: r.lng, label: r.name };
-    setSearchOrigin(origin);
-    setFlyTo({ lat: r.lat, lng: r.lng, ts: Date.now() });
-    setQuery("");
-    setSearchFocused(false);
-    setSort("distance");
-    setSelectedId(null);
-    const el = document.getElementById("top-search-input") as HTMLInputElement | null;
-    el?.blur();
-  };
+  const handlePickGeocoded = useCallback(
+    (r: ForwardGeocodeResult) => {
+      const origin = { lat: r.lat, lng: r.lng, label: r.name };
+      setSearchOrigin(origin);
+      setFlyTo({ lat: r.lat, lng: r.lng, ts: Date.now() });
+      setQuery("");
+      setSearchFocused(false);
+      setSort("distance");
+      setSelectedId(null);
+      searchInputRef.current?.blur();
+    },
+    []
+  );
 
-  const clearSearchOrigin = () => {
+  const clearSearchOrigin = useCallback(() => {
     setSearchOrigin(null);
     if (userPosition) {
       setFlyTo({ ...userPosition, ts: Date.now() });
     }
-  };
+  }, [userPosition]);
+
+  const onPickPlace = useCallback(
+    (p: Place) => {
+      if (selectedId === p.id) {
+        router.push(`/lugar/${p.id}`);
+        return;
+      }
+      setSelectedId(p.id);
+      setFlyTo({ lat: p.lat, lng: p.lng, ts: Date.now() });
+    },
+    [router, selectedId]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (blurTimerRef.current != null) {
+        window.clearTimeout(blurTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <main
@@ -412,11 +529,18 @@ export default function HomePage() {
             <ISearch size={20} color="var(--muted)" />
             <input
               id="top-search-input"
+              ref={searchInputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => {
-                setTimeout(() => setSearchFocused(false), 180);
+                if (blurTimerRef.current != null) {
+                  window.clearTimeout(blurTimerRef.current);
+                }
+                blurTimerRef.current = window.setTimeout(() => {
+                  blurTimerRef.current = null;
+                  setSearchFocused(false);
+                }, 180);
               }}
               placeholder="Pesquisar nome, cidade ou local…"
               style={{
@@ -437,8 +561,7 @@ export default function HomePage() {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   setQuery("");
-                  const el = document.getElementById("top-search-input") as HTMLInputElement | null;
-                  el?.focus();
+                  searchInputRef.current?.focus();
                 }}
                 style={{
                   width: 28,
@@ -521,6 +644,7 @@ export default function HomePage() {
                         setFlyTo({ lat: p.lat, lng: p.lng, ts: Date.now() });
                         setQuery("");
                         setSearchFocused(false);
+                        searchInputRef.current?.blur();
                       }}
                       style={{
                         display: "flex",
@@ -742,7 +866,7 @@ export default function HomePage() {
                           const n = radiusFallbackCount;
                           return `${n} ${n === 1 ? "lugar" : "lugares"} perto de ${searchOrigin.label}`;
                         }
-                        const primary = viewport ? visibleCount : radiusFallbackCount;
+                        const primary = viewport ? viewportCounts.visible : radiusFallbackCount;
                         const word = primary === 1 ? "lugar" : "lugares";
                         const where = viewport
                           ? city
@@ -752,8 +876,8 @@ export default function HomePage() {
                             ? ` em ${city}`
                             : "";
                         const extra =
-                          viewport && nearbyExtraCount > 0
-                            ? ` · +${nearbyExtraCount} perto`
+                          viewport && viewportCounts.nearby > 0
+                            ? ` · +${viewportCounts.nearby} perto`
                             : "";
                         return `${primary} ${word}${where}${extra}`;
                       })()}
@@ -1160,97 +1284,32 @@ export default function HomePage() {
                     : "Sem lugares nesta zona."}
             </div>
           ) : (
-            sorted.map((p, i) => (
-              <button
-                key={p.id}
-                ref={registerFlip(p.id)}
-                onClick={() => {
-                  if (selectedId === p.id) {
-                    router.push(`/lugar/${p.id}`);
-                    return;
-                  }
-                  setSelectedId(p.id);
-                  setFlyTo({ lat: p.lat, lng: p.lng, ts: Date.now() });
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "10px 8px",
-                  background:
-                    selectedId === p.id ? "rgba(39,116,174,0.10)" : "transparent",
-                  borderRadius: 12,
-                  border: "none",
-                  borderBottom: "0.5px solid var(--border)",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  color: "var(--text)",
-                  width: "100%",
-                  animation: `staggerIn 0.22s cubic-bezier(0.32, 0.72, 0, 1) both`,
-                  animationDelay: `${Math.min(i, 8) * 18}ms`,
-                  transition: "background 0.18s ease",
-                }}
-              >
+            <>
+              {visibleSorted.map((p, i) => (
+                <PlaceRow
+                  key={p.id}
+                  place={p}
+                  index={i}
+                  selected={selectedId === p.id}
+                  onPick={onPickPlace}
+                  flipRef={registerFlip(p.id)}
+                />
+              ))}
+              {sorted.length > visibleSorted.length && (
                 <div
                   style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 12,
-                    background: "rgba(39,116,174,0.12)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
+                    padding: "12px 8px 4px",
+                    color: "var(--muted)",
+                    fontSize: 12,
+                    textAlign: "center",
+                    fontFamily: "var(--font-geist-mono)",
+                    letterSpacing: -0.1,
                   }}
                 >
-                  <IMapPin size={18} color="#2774AE" />
+                  +{sorted.length - visibleSorted.length} lugares restantes — refine a pesquisa
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      minWidth: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 15,
-                        fontWeight: 500,
-                        color: "var(--text)",
-                        letterSpacing: -0.2,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        minWidth: 0,
-                      }}
-                    >
-                      {p.title}
-                    </span>
-                    {p.pinned && (
-                      <IStar
-                        size={13}
-                        filled
-                        color="#E0A82E"
-                        strokeWidth={1.4}
-                        style={{ flexShrink: 0 }}
-                      />
-                    )}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--muted)",
-                      fontFamily: "var(--font-geist-mono)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {Number.isFinite(p.distance_m) ? formatDistance(p.distance_m) : "—"}
-                  </div>
-                </div>
-              </button>
-            ))
+              )}
+            </>
           )}
         </div>
       </BottomSheet>
