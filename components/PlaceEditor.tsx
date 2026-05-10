@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
@@ -63,6 +63,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
   const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
   const [layersOpen, setLayersOpen] = useState(false);
   const [showPlaces, setShowPlaces] = useState(true);
+  const userMovedRef = useRef(false);
   const { city } = useReverseGeocode(pos?.lat ?? null, pos?.lng ?? null);
   const { places } = usePlaces();
   const otherPlaces =
@@ -100,6 +101,21 @@ export default function PlaceEditor({ mode, initial }: Props) {
     }
   }, [showPlaces]);
 
+  const initialLat = initial?.lat ?? null;
+  const initialLng = initial?.lng ?? null;
+  const lastInitialKeyRef = useRef<string | null>(
+    initialLat != null && initialLng != null ? `${initialLat},${initialLng}` : null
+  );
+  useEffect(() => {
+    if (mode !== "edit" || initialLat == null || initialLng == null) return;
+    if (userMovedRef.current) return;
+    const key = `${initialLat},${initialLng}`;
+    if (lastInitialKeyRef.current === key) return;
+    lastInitialKeyRef.current = key;
+    setPos({ lat: initialLat, lng: initialLng });
+    setFlyTo({ lat: initialLat, lng: initialLng, ts: Date.now() });
+  }, [mode, initialLat, initialLng]);
+
   useEffect(() => {
     if (pos || mode !== "add") return;
     const params = new URLSearchParams(window.location.search);
@@ -122,6 +138,8 @@ export default function PlaceEditor({ mode, initial }: Props) {
 
   const onLocateMe = () => {
     if (geo.lat == null || geo.lng == null) return;
+    userMovedRef.current = true;
+    setPos({ lat: geo.lat, lng: geo.lng });
     setFlyTo({ lat: geo.lat, lng: geo.lng, ts: Date.now() });
   };
 
@@ -215,7 +233,13 @@ export default function PlaceEditor({ mode, initial }: Props) {
           interactive
           mapStyle={mapStyle}
           centerPin
-          onCenterChange={(next) => setPos(next)}
+          onCenterChange={(next) => {
+            if (!userMovedRef.current) return;
+            setPos(next);
+          }}
+          onUserDrag={() => {
+            userMovedRef.current = true;
+          }}
           viewportPadding={{ bottom: sheetHeight }}
         />
       )}
