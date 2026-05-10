@@ -136,11 +136,17 @@ export const IEdit = (p: IconProps) => (
     <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
   </Icon>
 );
-export const ICompass = (p: IconProps) => (
-  <Icon {...p}>
-    <circle cx="12" cy="12" r="10" />
-    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
-  </Icon>
+export const ICompass = ({ size = 20, ...rest }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+    {...rest}
+  >
+    <polygon points="12,3 14.8,12 9.2,12" fill="#E5484D" />
+    <polygon points="12,21 14.8,12 9.2,12" fill="currentColor" opacity="0.55" />
+  </svg>
 );
 export const ILayers = (p: IconProps) => (
   <Icon {...p}>
