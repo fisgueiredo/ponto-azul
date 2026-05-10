@@ -47,7 +47,7 @@ const MAX_SPOTS = 20;
 
 export default function PlaceEditor({ mode, initial }: Props) {
   const router = useRouter();
-  const geo = useGeolocation({ enabled: mode === "add" });
+  const geo = useGeolocation();
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(
     initial ? { lat: initial.lat, lng: initial.lng } : null
   );

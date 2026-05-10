@@ -274,11 +274,15 @@ export default function HomePage() {
               <IMapPin size={11} color="#fff" strokeWidth={2.2} />
             </span>
             <span>
-              {loading
-                ? "a carregar…"
-                : `${places.length} ${places.length === 1 ? "lugar" : "lugares"}${
-                    city ? ` em ${city}` : ""
-                  }`}
+              {geo.permission === "denied"
+                ? "GPS desativado"
+                : !userPosition && geo.error
+                  ? "Sem GPS"
+                  : loading
+                    ? "a carregar…"
+                    : `${places.length} ${places.length === 1 ? "lugar" : "lugares"}${
+                        city ? ` em ${city}` : ""
+                      }`}
             </span>
           </div>
 
