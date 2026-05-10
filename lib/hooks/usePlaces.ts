@@ -14,6 +14,7 @@ type StoredPlace = {
   lat: number;
   lng: number;
   spots: number;
+  pinned: boolean;
   created_at: string;
 };
 
@@ -66,6 +67,7 @@ function placesIdentical(a: StoredPlace[], b: StoredPlace[]): boolean {
       x.lat !== y.lat ||
       x.lng !== y.lng ||
       x.spots !== y.spots ||
+      x.pinned !== y.pinned ||
       x.created_at !== y.created_at
     ) {
       return false;
@@ -118,7 +120,7 @@ export function usePlaces({
       setError(null);
       const { data, error } = await supabase!
         .from("places_with_coords")
-        .select("id, title, description, lat, lng, spots, created_at")
+        .select("id, title, description, lat, lng, spots, pinned, created_at")
         .order("created_at", { ascending: false });
       if (error) {
         setError(error.message);
@@ -190,7 +192,7 @@ export function usePlace(id: string | null | undefined) {
     }
     supabase!
       .from("places_with_coords")
-      .select("id, title, description, lat, lng, spots, created_at")
+      .select("id, title, description, lat, lng, spots, pinned, created_at")
       .eq("id", id)
       .maybeSingle()
       .then(({ data, error }) => {

@@ -17,7 +17,7 @@ type Props = {
   places?: Place[];
   userPosition?: LatLng | null;
   initialCenter?: LatLng | null;
-  flyTo?: { lat: number; lng: number; ts: number } | null;
+  flyTo?: { lat: number; lng: number; ts: number; zoom?: number } | null;
   zoom?: number;
   interactive?: boolean;
   showAttribution?: boolean;
@@ -325,7 +325,7 @@ function MapViewImpl({
     if (!map || !flyTo) return;
     map.flyTo({
       center: [flyTo.lng, flyTo.lat],
-      zoom,
+      zoom: flyTo.zoom ?? zoom,
       bearing: 0,
       pitch: 0,
       duration: 520,

@@ -159,3 +159,8 @@ export const ITrash = (p: IconProps) => (
     <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" />
   </Icon>
 );
+export const IStar = ({ filled, ...p }: IconProps & { filled?: boolean }) => (
+  <Icon {...p} fill={filled ? "currentColor" : "none"}>
+    <path d="m12 2.6 2.95 5.98 6.6.96-4.78 4.66 1.13 6.57L12 17.77l-5.9 3 1.13-6.57L2.45 9.54l6.6-.96L12 2.6Z" />
+  </Icon>
+);

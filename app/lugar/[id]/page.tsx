@@ -13,10 +13,11 @@ import {
   IEdit,
   ITrash,
   ICar,
+  IStar,
 } from "@/components/Icons";
 import { formatDistance, haversineMeters } from "@/lib/format";
 import { mapsUrl, wazeUrl } from "@/lib/platform";
-import { supabase } from "@/lib/supabase";
+import { supabase, togglePinned } from "@/lib/supabase";
 import type { MapStyleKind } from "@/components/MapView";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -35,6 +36,8 @@ export default function PlaceDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mapStyle, setMapStyle] = useState<MapStyleKind>("standard");
+  const [pinnedOverride, setPinnedOverride] = useState<boolean | null>(null);
+  const [pinning, setPinning] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -88,6 +91,33 @@ export default function PlaceDetailPage() {
       }
     } catch {
       // user cancelled — ignore
+    }
+  };
+
+  const isPinned = pinnedOverride ?? place?.pinned ?? false;
+
+  const onTogglePin = async () => {
+    if (!place || pinning) return;
+    const next = !isPinned;
+    setPinnedOverride(next);
+    setPinning(true);
+    try {
+      const result = await togglePinned(place.id);
+      if (typeof result === "boolean") {
+        setPinnedOverride(result);
+      }
+      try {
+        window.localStorage.removeItem("pa:places:v2");
+      } catch {
+        // ignore
+      }
+    } catch (e: unknown) {
+      setPinnedOverride(!next);
+      const msg = e instanceof Error ? e.message : "Erro ao guardar";
+      setToast(msg);
+      setTimeout(() => setToast(null), 2200);
+    } finally {
+      setPinning(false);
     }
   };
 
@@ -155,6 +185,15 @@ export default function PlaceDetailPage() {
           gap: 8,
         }}
       >
+        <button
+          aria-label={isPinned ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+          aria-pressed={isPinned}
+          onClick={onTogglePin}
+          disabled={pinning}
+          style={iconBtn(isPinned ? "active" : undefined)}
+        >
+          <IStar size={18} filled={isPinned} strokeWidth={isPinned ? 1.6 : 1.75} />
+        </button>
         <button
           aria-label="Editar"
           onClick={() => router.push(`/lugar/${place.id}/editar`)}
@@ -451,7 +490,7 @@ export default function PlaceDetailPage() {
   );
 }
 
-function iconBtn(variant?: "left" | "danger"): React.CSSProperties {
+function iconBtn(variant?: "left" | "danger" | "active"): React.CSSProperties {
   const base: React.CSSProperties = {
     width: 40,
     height: 40,
@@ -481,6 +520,14 @@ function iconBtn(variant?: "left" | "danger"): React.CSSProperties {
       ...base,
       color: "#C2393C",
       borderColor: "rgba(194,57,60,0.35)",
+    };
+  }
+  if (variant === "active") {
+    return {
+      ...base,
+      color: "#E0A82E",
+      borderColor: "rgba(224,168,46,0.45)",
+      background: "rgba(255,210,90,0.18)",
     };
   }
   return base;
