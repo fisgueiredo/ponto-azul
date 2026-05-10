@@ -13,5 +13,5 @@ export function mapsUrl(lat: number, lng: number): string {
 }
 
 export function wazeUrl(lat: number, lng: number): string {
-  return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
+  return `https://waze.com/ul?ll=${lat},${lng}`;
 }
