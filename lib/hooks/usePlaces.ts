@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, supabaseConfigured, Place } from "@/lib/supabase";
 import { haversineMeters } from "@/lib/format";
 
-const CACHE_KEY = "pa:places:v1";
+const CACHE_KEY = "pa:places:v2";
 
 type StoredPlace = {
   id: string;
@@ -11,6 +11,7 @@ type StoredPlace = {
   description: string | null;
   lat: number;
   lng: number;
+  spots: number;
   created_at: string;
 };
 
@@ -70,7 +71,7 @@ export function usePlaces({
     setError(null);
     const { data, error } = await supabase!
       .from("places_with_coords")
-      .select("id, title, description, lat, lng, created_at")
+      .select("id, title, description, lat, lng, spots, created_at")
       .order("created_at", { ascending: false });
     if (error) {
       setError(error.message);
@@ -129,7 +130,7 @@ export function usePlace(id: string | null | undefined) {
     }
     supabase!
       .from("places_with_coords")
-      .select("id, title, description, lat, lng, created_at")
+      .select("id, title, description, lat, lng, spots, created_at")
       .eq("id", id)
       .maybeSingle()
       .then(({ data, error }) => {

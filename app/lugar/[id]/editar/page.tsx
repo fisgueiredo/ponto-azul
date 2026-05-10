@@ -30,6 +30,7 @@ export default function EditarLugarPage() {
         description: place.description,
         lat: place.lat,
         lng: place.lng,
+        spots: place.spots ?? 1,
       }}
     />
   );

@@ -12,6 +12,7 @@ import {
   IMapPin,
   IEdit,
   ITrash,
+  ICar,
 } from "@/components/Icons";
 import { formatDistance, haversineMeters } from "@/lib/format";
 import { mapsUrl, wazeUrl } from "@/lib/platform";
@@ -86,7 +87,7 @@ export default function PlaceDetailPage() {
       return;
     }
     try {
-      window.localStorage.removeItem("pa:places:v1");
+      window.localStorage.removeItem("pa:places:v2");
     } catch {
       // ignore
     }
@@ -186,33 +187,56 @@ export default function PlaceDetailPage() {
           animation: "fadeUp 0.45s cubic-bezier(0.34, 1.4, 0.64, 1)",
         }}
       >
-        {distance && (
+        {(distance || place.spots) && (
           <div
             style={{
               display: "flex",
               alignItems: "center",
+              flexWrap: "wrap",
               gap: 8,
               marginBottom: 12,
             }}
           >
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "5px 10px",
-                borderRadius: 999,
-                background: "rgba(39,116,174,0.10)",
-                color: "#2774AE",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: 0.4,
-                textTransform: "uppercase",
-              }}
-            >
-              <IMapPin size={12} color="#2774AE" strokeWidth={2.2} />
-              {distance} de si
-            </span>
+            {distance && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 10px",
+                  borderRadius: 999,
+                  background: "rgba(39,116,174,0.10)",
+                  color: "#2774AE",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: 0.4,
+                  textTransform: "uppercase",
+                }}
+              >
+                <IMapPin size={12} color="#2774AE" strokeWidth={2.2} />
+                {distance} de si
+              </span>
+            )}
+            {place.spots > 0 && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "5px 10px",
+                  borderRadius: 999,
+                  background: "rgba(0,175,84,0.10)",
+                  color: "#0E8E45",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: 0.4,
+                  textTransform: "uppercase",
+                }}
+              >
+                <ICar size={12} color="#0E8E45" strokeWidth={2.2} />
+                {place.spots} {place.spots === 1 ? "lugar" : "lugares"}
+              </span>
+            )}
           </div>
         )}
 

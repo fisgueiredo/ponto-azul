@@ -39,6 +39,18 @@ export const IPlus = (p: IconProps) => (
     <path d="M12 5v14M5 12h14" />
   </Icon>
 );
+export const IMinus = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 12h14" />
+  </Icon>
+);
+export const ICar = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 17h14M6 17l1.5-5.5A2 2 0 0 1 9.4 10h5.2a2 2 0 0 1 1.9 1.5L18 17M3 17v3h3v-3M18 17v3h3v-3" />
+    <circle cx="8" cy="17" r="1.2" />
+    <circle cx="16" cy="17" r="1.2" />
+  </Icon>
+);
 export const ILocate = (p: IconProps) => (
   <Icon {...p}>
     <circle cx="12" cy="12" r="3" />

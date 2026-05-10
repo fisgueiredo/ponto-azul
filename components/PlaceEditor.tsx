@@ -4,7 +4,16 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { useReverseGeocode } from "@/lib/hooks/useReverseGeocode";
-import { IClose, ICheck, IMove, IMapPin, ILocate } from "@/components/Icons";
+import {
+  IClose,
+  ICheck,
+  IMove,
+  IMapPin,
+  ILocate,
+  IPlus,
+  IMinus,
+  ICar,
+} from "@/components/Icons";
 import BottomSheet from "@/components/BottomSheet";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 
@@ -20,8 +29,12 @@ type Props = {
     description: string | null;
     lat: number;
     lng: number;
+    spots: number;
   };
 };
+
+const MIN_SPOTS = 1;
+const MAX_SPOTS = 20;
 
 export default function PlaceEditor({ mode, initial }: Props) {
   const router = useRouter();
@@ -32,6 +45,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; ts: number } | null>(null);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [spots, setSpots] = useState<number>(initial?.spots ?? 1);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +91,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
         p_description: description.trim(),
         p_lat: pos.lat,
         p_lng: pos.lng,
+        p_spots: spots,
       });
       if (error) {
         setError(error.message);
@@ -85,7 +100,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
       }
       setDone(true);
       try {
-        window.localStorage.removeItem("pa:places:v1");
+        window.localStorage.removeItem("pa:places:v2");
       } catch {
         // ignore
       }
@@ -97,6 +112,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
         p_description: description.trim(),
         p_lat: pos.lat,
         p_lng: pos.lng,
+        p_spots: spots,
       });
       if (error) {
         setError(error.message);
@@ -105,7 +121,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
       }
       setDone(true);
       try {
-        window.localStorage.removeItem("pa:places:v1");
+        window.localStorage.removeItem("pa:places:v2");
       } catch {
         // ignore
       }
@@ -415,6 +431,103 @@ export default function PlaceEditor({ mode, initial }: Props) {
                 lineHeight: 1.4,
               }}
             />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              padding: "12px 14px",
+              borderRadius: 14,
+              background: "rgba(20,30,40,0.04)",
+              border: "0.5px solid var(--border)",
+              marginBottom: 14,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+              <span
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 10,
+                  background: "rgba(39,116,174,0.12)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <ICar size={16} color="#2774AE" />
+              </span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, letterSpacing: -0.1 }}>
+                  Número de lugares
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 1 }}>
+                  vagas acessíveis no local
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                aria-label="Diminuir lugares"
+                onClick={() =>
+                  setSpots((s) => Math.max(MIN_SPOTS, s - 1))
+                }
+                disabled={spots <= MIN_SPOTS}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  background: "var(--card)",
+                  border: "0.5px solid var(--border)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: spots > MIN_SPOTS ? "pointer" : "not-allowed",
+                  opacity: spots > MIN_SPOTS ? 1 : 0.45,
+                  color: "var(--text)",
+                }}
+              >
+                <IMinus size={16} />
+              </button>
+              <span
+                style={{
+                  minWidth: 28,
+                  textAlign: "center",
+                  fontVariantNumeric: "tabular-nums",
+                  fontSize: 17,
+                  fontWeight: 600,
+                  letterSpacing: -0.2,
+                }}
+              >
+                {spots}
+              </span>
+              <button
+                aria-label="Aumentar lugares"
+                onClick={() =>
+                  setSpots((s) => Math.min(MAX_SPOTS, s + 1))
+                }
+                disabled={spots >= MAX_SPOTS}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  background: "var(--card)",
+                  border: "0.5px solid var(--border)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: spots < MAX_SPOTS ? "pointer" : "not-allowed",
+                  opacity: spots < MAX_SPOTS ? 1 : 0.45,
+                  color: "var(--text)",
+                }}
+              >
+                <IPlus size={16} />
+              </button>
+            </div>
           </div>
 
           {city && (
