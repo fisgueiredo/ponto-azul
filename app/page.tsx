@@ -105,6 +105,9 @@ export default function HomePage() {
         zoom={15}
         onPinClick={(p) => router.push(`/lugar/${p.id}`)}
         onCenterChange={setMapCenter}
+        onLongPress={(pos) =>
+          router.push(`/adicionar?lat=${pos.lat}&lng=${pos.lng}`)
+        }
       />
 
       <div

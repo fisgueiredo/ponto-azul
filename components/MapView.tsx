@@ -18,6 +18,7 @@ type Props = {
   interactive?: boolean;
   showAttribution?: boolean;
   onPinClick?: (place: Place) => void;
+  onLongPress?: (pos: LatLng) => void;
   draggablePin?: LatLng | null;
   onPinDrag?: (pos: LatLng) => void;
   centerPin?: boolean;
@@ -40,6 +41,7 @@ function MapViewImpl({
   interactive = true,
   showAttribution = false,
   onPinClick,
+  onLongPress,
   draggablePin = null,
   onPinDrag,
   centerPin = false,
@@ -57,11 +59,13 @@ function MapViewImpl({
   const onPinClickRef = useRef(onPinClick);
   const onPinDragRef = useRef(onPinDrag);
   const onCenterChangeRef = useRef(onCenterChange);
+  const onLongPressRef = useRef(onLongPress);
 
   useEffect(() => {
     onPinClickRef.current = onPinClick;
     onPinDragRef.current = onPinDrag;
     onCenterChangeRef.current = onCenterChange;
+    onLongPressRef.current = onLongPress;
   });
 
   useEffect(() => {
@@ -82,8 +86,66 @@ function MapViewImpl({
       onCenterChangeRef.current?.({ lat: c.lat, lng: c.lng });
     };
     map.on("moveend", handleMoveEnd);
+
+    let pressTimer: ReturnType<typeof setTimeout> | null = null;
+    let pressOrigin: { x: number; y: number; lat: number; lng: number } | null =
+      null;
+    const cancelPress = () => {
+      if (pressTimer) clearTimeout(pressTimer);
+      pressTimer = null;
+      pressOrigin = null;
+    };
+    const handleTouchStart = (e: maplibregl.MapTouchEvent) => {
+      if (e.originalEvent.touches.length !== 1) {
+        cancelPress();
+        return;
+      }
+      pressOrigin = {
+        x: e.point.x,
+        y: e.point.y,
+        lat: e.lngLat.lat,
+        lng: e.lngLat.lng,
+      };
+      pressTimer = setTimeout(() => {
+        if (pressOrigin) {
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+            try {
+              navigator.vibrate(20);
+            } catch {
+              // ignore
+            }
+          }
+          onLongPressRef.current?.({
+            lat: pressOrigin.lat,
+            lng: pressOrigin.lng,
+          });
+          pressOrigin = null;
+        }
+      }, 500);
+    };
+    const handleTouchMove = (e: maplibregl.MapTouchEvent) => {
+      if (!pressOrigin) return;
+      const dx = e.point.x - pressOrigin.x;
+      const dy = e.point.y - pressOrigin.y;
+      if (Math.hypot(dx, dy) > 10) cancelPress();
+    };
+    const handleContextMenu = (e: maplibregl.MapMouseEvent) => {
+      onLongPressRef.current?.({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+    };
+    map.on("touchstart", handleTouchStart);
+    map.on("touchmove", handleTouchMove);
+    map.on("touchend", cancelPress);
+    map.on("touchcancel", cancelPress);
+    map.on("contextmenu", handleContextMenu);
+
     return () => {
+      cancelPress();
       map.off("moveend", handleMoveEnd);
+      map.off("touchstart", handleTouchStart);
+      map.off("touchmove", handleTouchMove);
+      map.off("touchend", cancelPress);
+      map.off("touchcancel", cancelPress);
+      map.off("contextmenu", handleContextMenu);
       map.remove();
       mapRef.current = null;
       markers.clear();
