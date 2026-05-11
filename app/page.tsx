@@ -333,7 +333,9 @@ export default function HomePage() {
     }));
   }, [places, userPosition]);
 
-  const queryMatchedIds = useMemo(() => {
+  // Fast path: instant title-substring match per keystroke. Synchronous so
+  // the visible list updates within the same frame as the input.
+  const titleMatchIds = useMemo(() => {
     const q = query.trim();
     if (!q) return null;
     const n = normalizeText(q);
@@ -341,7 +343,21 @@ export default function HomePage() {
     for (const p of placesWithDist) {
       if (normalizeText(p.title).includes(n)) ids.add(p.id);
     }
-    if (geoResults.length > 0) {
+    return ids;
+  }, [placesWithDist, query]);
+
+  // Slow path: bbox/radius match against forward-geocoded regions. Debounced
+  // so we don't run the O(n×m) loop on every keystroke.
+  const [regionMatchIds, setRegionMatchIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  useEffect(() => {
+    if (!query.trim() || geoResults.length === 0) {
+      setRegionMatchIds((prev) => (prev.size === 0 ? prev : new Set()));
+      return;
+    }
+    const t = window.setTimeout(() => {
+      const ids = new Set<string>();
       for (const r of geoResults) {
         const bbox = r.bbox;
         let usedBbox = false;
@@ -387,9 +403,18 @@ export default function HomePage() {
           }
         }
       }
-    }
-    return ids;
-  }, [placesWithDist, query, geoResults]);
+      setRegionMatchIds(ids);
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [placesWithDist, geoResults, query]);
+
+  const queryMatchedIds = useMemo(() => {
+    if (titleMatchIds === null) return null;
+    if (regionMatchIds.size === 0) return titleMatchIds;
+    const combined = new Set(titleMatchIds);
+    for (const id of regionMatchIds) combined.add(id);
+    return combined;
+  }, [titleMatchIds, regionMatchIds]);
 
   const filteredList = useMemo(() => {
     if (!queryMatchedIds) return placesWithDist;
