@@ -33,6 +33,8 @@ type Props = {
   header?: React.ReactNode;
   footer?: React.ReactNode;
   children: React.ReactNode;
+  outerStyle?: React.CSSProperties;
+  ariaHidden?: boolean;
 };
 
 export default function BottomSheet({
@@ -40,6 +42,8 @@ export default function BottomSheet({
   midHeight,
   onHeightChange,
   onSnapChange,
+  outerStyle,
+  ariaHidden,
   header,
   footer,
   children,
@@ -165,6 +169,7 @@ export default function BottomSheet({
 
   return (
     <div
+      aria-hidden={ariaHidden}
       style={{
         position: "absolute",
         left: 0,
@@ -180,12 +185,13 @@ export default function BottomSheet({
         boxShadow: "0 -8px 28px rgba(20,30,50,0.08)",
         zIndex: 14,
         transition: transitioning
-          ? "height var(--dur-slow) var(--ease-spring)"
-          : "none",
+          ? "height var(--dur-slow) var(--ease-spring), transform 0.7s cubic-bezier(0.32, 0.72, 0, 1)"
+          : "transform 0.7s cubic-bezier(0.32, 0.72, 0, 1)",
         willChange: dragging ? "height" : undefined,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        ...outerStyle,
       }}
     >
       <div
