@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
@@ -39,9 +39,7 @@ type PlaceRowProps = {
   onPick: (p: Place) => void;
   flipRef: (el: HTMLElement | null) => void;
 };
-// Not memo'd: useFlipList returns a fresh ref-callback per render which would
-// defeat shallow-equality anyway. Extraction still keeps the render concise.
-function PlaceRow({
+function PlaceRowImpl({
   place,
   index,
   selected,
@@ -131,6 +129,8 @@ function PlaceRow({
     </button>
   );
 }
+
+const PlaceRow = memo(PlaceRowImpl);
 
 type SortKey = "distance" | "recent" | "name";
 const SORT_LABELS: Record<SortKey, string> = {
@@ -473,6 +473,18 @@ export default function HomePage() {
     [adding, sheetHeight]
   );
 
+  const onMapPinClick = useCallback(
+    (p: Place) => {
+      if (adding) return;
+      router.push(`/lugar/${p.id}`);
+    },
+    [adding, router]
+  );
+
+  const onMapUserDrag = useCallback(() => {
+    if (!adding) setSelectedId(null);
+  }, [adding]);
+
   const handlePickGeocoded = useCallback(
     (r: ForwardGeocodeResult) => {
       const origin = { lat: r.lat, lng: r.lng, label: r.name };
@@ -535,15 +547,10 @@ export default function HomePage() {
         centerPin={!!adding}
         pressFeedback={pressFeedback}
         viewportPadding={mapViewportPadding}
-        onPinClick={(p) => {
-          if (adding) return;
-          router.push(`/lugar/${p.id}`);
-        }}
+        onPinClick={onMapPinClick}
         onCenterChange={setMapCenter}
         onViewportChange={setViewport}
-        onUserDrag={() => {
-          if (!adding) setSelectedId(null);
-        }}
+        onUserDrag={onMapUserDrag}
         onBearingChange={setBearing}
         resetBearing={resetBearing}
         onLongPress={startAdding}
