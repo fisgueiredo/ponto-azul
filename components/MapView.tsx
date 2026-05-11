@@ -8,7 +8,7 @@ import maplibregl, {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Place } from "@/lib/supabase";
-import { createPinElement, setPinActive } from "./PinElement";
+import { createPinElement, setPinActive, setPinPinned } from "./PinElement";
 
 // Bump the default (16) to fan out tile requests faster on initial map paint.
 setMaxParallelImageRequests(32);
@@ -351,9 +351,10 @@ function MapViewImpl({
           prev.setLngLat([p.lng, p.lat]);
         }
         setPinActive(prev.getElement() as HTMLDivElement, p.id === highlightId);
+        setPinPinned(prev.getElement() as HTMLDivElement, !!p.pinned);
         continue;
       }
-      const el = createPinElement("place", { active: p.id === highlightId });
+      const el = createPinElement("place", { active: p.id === highlightId, pinned: !!p.pinned });
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         onPinClickRef.current?.(p);
