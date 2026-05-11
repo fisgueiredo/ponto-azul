@@ -91,7 +91,7 @@ export default function AddPlaceSheet({
           justifyContent: "space-between",
           padding: "0 16px",
           zIndex: 20,
-          animation: "fadeUp 0.28s cubic-bezier(0.32, 0.72, 0, 1) both",
+          animation: "fadeUp 0.5s cubic-bezier(0.32, 0.72, 0, 1) both",
         }}
       >
         <button
@@ -140,28 +140,36 @@ export default function AddPlaceSheet({
         style={{
           position: "absolute",
           top: "calc(env(safe-area-inset-top, 0px) + 70px)",
-          left: "50%",
-          transform: "translateX(-50%)",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 14px",
-          borderRadius: 999,
-          background: "var(--card-glass)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          border: "0.5px solid var(--border)",
-          fontSize: 12,
-          color: "var(--text)",
-          fontWeight: 500,
-          whiteSpace: "nowrap",
-          boxShadow: "0 4px 12px rgba(20,30,50,0.08)",
-          animation: "fadeUp 0.4s ease-out both",
+          left: 0,
+          right: 0,
+          display: "flex",
+          justifyContent: "center",
+          pointerEvents: "none",
           zIndex: 20,
         }}
       >
-        <IMove size={13} color="var(--muted)" />
-        Move o mapa para ajustar
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 14px",
+            borderRadius: 999,
+            background: "var(--card-glass)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "0.5px solid var(--border)",
+            fontSize: 12,
+            color: "var(--text)",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 12px rgba(20,30,50,0.08)",
+            animation: "fadeUp 0.6s cubic-bezier(0.32, 0.72, 0, 1) both",
+          }}
+        >
+          <IMove size={13} color="var(--muted)" />
+          Move o mapa para ajustar
+        </div>
       </div>
 
       <BottomSheet
@@ -265,7 +273,6 @@ export default function AddPlaceSheet({
               </span>
             </div>
             <input
-              autoFocus
               type="text"
               placeholder="Ex.: Praça do Município, entrada norte"
               value={title}

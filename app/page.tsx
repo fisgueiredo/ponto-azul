@@ -316,7 +316,7 @@ export default function HomePage() {
       ts,
       mode: "ease",
       zoom: 17.5,
-      duration: 620,
+      duration: 1100,
     });
   };
 
@@ -522,7 +522,7 @@ export default function HomePage() {
           opacity: adding ? 0 : 1,
           pointerEvents: adding ? "none" : undefined,
           transition:
-            "transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s cubic-bezier(0.32, 0.72, 0, 1)",
+            "transform 0.7s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.45s cubic-bezier(0.32, 0.72, 0, 1)",
           willChange: "transform, opacity",
         }}
       >
@@ -1096,7 +1096,7 @@ export default function HomePage() {
           opacity: adding ? 0 : 1,
           pointerEvents: adding ? "none" : undefined,
           transition:
-            "bottom 0.4s cubic-bezier(0.32, 0.72, 0, 1), transform 0.36s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.22s cubic-bezier(0.32, 0.72, 0, 1)",
+            "bottom 0.6s cubic-bezier(0.32, 0.72, 0, 1), transform 0.65s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.45s cubic-bezier(0.32, 0.72, 0, 1)",
           willChange: "transform, opacity",
           transformOrigin: "center bottom",
         }}
@@ -1161,21 +1161,15 @@ export default function HomePage() {
         />
       )}
 
-      <div
-        aria-hidden={!!adding}
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          transform: adding ? "translateY(110%)" : "translateY(0)",
-          transition: "transform 0.44s cubic-bezier(0.32, 0.72, 0, 1)",
-          willChange: "transform",
-          zIndex: 13,
-        }}
-      >
       <BottomSheet
         defaultSnap="mid"
         onHeightChange={setHomeSheetHeight}
+        ariaHidden={!!adding}
+        outerStyle={{
+          transform: adding ? "translateY(110%)" : "translateY(0)",
+          willChange: "transform",
+          pointerEvents: adding ? "none" : undefined,
+        }}
         header={
           <div
             style={{
@@ -1448,7 +1442,6 @@ export default function HomePage() {
           )}
         </div>
       </BottomSheet>
-      </div>
     </main>
   );
 }
