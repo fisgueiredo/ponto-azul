@@ -3,7 +3,7 @@ import { memo, useEffect, useRef } from "react";
 import maplibregl, {
   Map as MLMap,
   Marker,
-  StyleSpecification,
+  RasterSourceSpecification,
   setMaxParallelImageRequests,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -64,41 +64,24 @@ type Props = {
 };
 
 const STANDARD_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
-const SATELLITE_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    "google-satellite": {
-      type: "raster",
-      tiles: [
-        "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-        "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-        "https://mt2.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-        "https://mt3.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-      ],
-      tileSize: 256,
-      maxzoom: 20,
-      attribution: "&copy; Google",
-    },
-  },
-  layers: [
-    // Background fill avoids a flash of empty canvas while tiles load.
-    {
-      id: "satellite-bg",
-      type: "background",
-      paint: { "background-color": "#1b1f26" },
-    },
-    {
-      id: "google-satellite",
-      type: "raster",
-      source: "google-satellite",
-      paint: { "raster-fade-duration": 0 },
-    },
-  ],
-};
 
-function styleFor(kind: MapStyleKind): string | StyleSpecification {
-  return kind === "satellite" ? SATELLITE_STYLE : STANDARD_STYLE_URL;
-}
+// Satellite is overlaid on top of the standard vector style as a single raster
+// layer toggled via visibility — switching styles becomes an instant
+// setLayoutProperty instead of a full setStyle() rebuild (~1.2 s freeze).
+const SATELLITE_SOURCE_ID = "google-satellite";
+const SATELLITE_LAYER_ID = "google-satellite";
+const SATELLITE_SOURCE: RasterSourceSpecification = {
+  type: "raster",
+  tiles: [
+    "https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+    "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+    "https://mt2.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+    "https://mt3.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+  ],
+  tileSize: 256,
+  maxzoom: 20,
+  attribution: "&copy; Google",
+};
 
 const AVEIRO: LatLng = { lat: 40.6443, lng: -8.6455 };
 
@@ -129,6 +112,8 @@ function MapViewImpl({
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
+  const mapStyleRef = useRef<MapStyleKind>(mapStyle);
+  mapStyleRef.current = mapStyle;
   const markersRef = useRef<Map<string, Marker>>(new Map());
   const indexRef = useRef<Supercluster<PlaceProps> | null>(null);
   const reconcileRef = useRef<() => void>(() => {});
@@ -158,7 +143,7 @@ function MapViewImpl({
     const initial = initialCenter ?? userPosition ?? AVEIRO;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: styleFor(mapStyle),
+      style: STANDARD_STYLE_URL,
       center: [initial.lng, initial.lat],
       zoom,
       interactive,
@@ -167,6 +152,25 @@ function MapViewImpl({
       refreshExpiredTiles: false,
     });
     mapRef.current = map;
+
+    const onStyleLoad = () => {
+      if (!map.getSource(SATELLITE_SOURCE_ID)) {
+        map.addSource(SATELLITE_SOURCE_ID, SATELLITE_SOURCE);
+      }
+      if (!map.getLayer(SATELLITE_LAYER_ID)) {
+        map.addLayer({
+          id: SATELLITE_LAYER_ID,
+          type: "raster",
+          source: SATELLITE_SOURCE_ID,
+          paint: { "raster-fade-duration": 0 },
+          layout: {
+            visibility:
+              mapStyleRef.current === "satellite" ? "visible" : "none",
+          },
+        });
+      }
+    };
+    map.on("load", onStyleLoad);
     const markers = markersRef.current;
     let moveRaf = 0;
     const handleMoveEnd = () => {
@@ -333,6 +337,7 @@ function MapViewImpl({
       map.off("touchcancel", cancelPress);
       map.off("contextmenu", handleContextMenu);
       map.off("dragstart", handleDragStart);
+      map.off("load", onStyleLoad);
       map.remove();
       mapRef.current = null;
       markers.clear();
@@ -343,15 +348,17 @@ function MapViewImpl({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isFirstStyleRef = useRef(true);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (isFirstStyleRef.current) {
-      isFirstStyleRef.current = false;
-      return;
-    }
-    map.setStyle(styleFor(mapStyle));
+    // If the satellite layer hasn't been added yet (style still loading),
+    // onStyleLoad will pick up the current value from mapStyleRef.
+    if (!map.getLayer(SATELLITE_LAYER_ID)) return;
+    map.setLayoutProperty(
+      SATELLITE_LAYER_ID,
+      "visibility",
+      mapStyle === "satellite" ? "visible" : "none"
+    );
   }, [mapStyle]);
 
   useEffect(() => {
