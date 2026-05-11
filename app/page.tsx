@@ -162,10 +162,7 @@ export default function HomePage() {
         : null,
     [geo.lat, geo.lng]
   );
-  const { places, loading } = usePlaces({
-    userLat: userPosition?.lat,
-    userLng: userPosition?.lng,
-  });
+  const { places, loading } = usePlaces();
 
   const restoredCenter = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -328,7 +325,13 @@ export default function HomePage() {
     });
   };
 
-  const placesWithDist = places;
+  const placesWithDist = useMemo<Place[]>(() => {
+    if (!userPosition) return places;
+    return places.map((p) => ({
+      ...p,
+      distance_m: haversineMeters(userPosition, { lat: p.lat, lng: p.lng }),
+    }));
+  }, [places, userPosition]);
 
   const queryMatchedIds = useMemo(() => {
     const q = query.trim();
@@ -465,6 +468,11 @@ export default function HomePage() {
     return n;
   }, [userPosition, filteredList]);
 
+  const mapViewportPadding = useMemo(
+    () => (adding ? { top: 160, bottom: sheetHeight } : undefined),
+    [adding, sheetHeight]
+  );
+
   const handlePickGeocoded = useCallback(
     (r: ForwardGeocodeResult) => {
       const origin = { lat: r.lat, lng: r.lng, label: r.name };
@@ -526,9 +534,7 @@ export default function HomePage() {
         highlightId={selectedId}
         centerPin={!!adding}
         pressFeedback={pressFeedback}
-        viewportPadding={
-          adding ? { top: 160, bottom: sheetHeight } : undefined
-        }
+        viewportPadding={mapViewportPadding}
         onPinClick={(p) => {
           if (adding) return;
           router.push(`/lugar/${p.id}`);

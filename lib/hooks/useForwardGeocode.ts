@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { forwardGeocode, ForwardGeocodeResult } from "@/lib/geocode";
 
-const DEBOUNCE_MS = 380;
+const DEBOUNCE_MS = 220;
 const MIN_QUERY = 2;
 
 export function useForwardGeocode(

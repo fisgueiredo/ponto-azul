@@ -22,16 +22,35 @@ const FWD_CACHE_PREFIX = "pa:geo:fwd:";
 const FWD_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 
 const REQUEST_TIMEOUT_MS = 8000;
-const MIN_SPACING_MS = 1100;
+// Short interactive bursts only — single-user PWA, low absolute frequency.
+// Stays well under Nominatim's public usage policy.
+const MIN_SPACING_MS = 350;
 
 let lastFireAt = 0;
 let queueTail: Promise<unknown> = Promise.resolve();
 
-function scheduleNominatim<T>(task: () => Promise<T>): Promise<T> {
+function scheduleNominatim<T>(
+  task: () => Promise<T>,
+  signal?: AbortSignal
+): Promise<T> {
   const run = async () => {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const now = Date.now();
     const wait = Math.max(0, MIN_SPACING_MS - (now - lastFireAt));
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    if (wait > 0) {
+      await new Promise<void>((resolve, reject) => {
+        const t = setTimeout(resolve, wait);
+        if (signal) {
+          const onAbort = () => {
+            clearTimeout(t);
+            reject(new DOMException("Aborted", "AbortError"));
+          };
+          if (signal.aborted) onAbort();
+          else signal.addEventListener("abort", onAbort, { once: true });
+        }
+      });
+    }
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     lastFireAt = Date.now();
     return task();
   };
@@ -99,11 +118,13 @@ export async function reverseGeocode(
   url.searchParams.set("zoom", "18");
 
   const signal = timeoutSignal(REQUEST_TIMEOUT_MS, options.signal);
-  const res = await scheduleNominatim(() =>
-    fetch(url.toString(), {
-      headers: { "Accept-Language": "pt-PT" },
-      signal,
-    })
+  const res = await scheduleNominatim(
+    () =>
+      fetch(url.toString(), {
+        headers: { "Accept-Language": "pt-PT" },
+        signal,
+      }),
+    options.signal
   );
   if (!res.ok) return { city: null, address: null };
 
@@ -199,11 +220,13 @@ export async function forwardGeocode(
   }
 
   const signal = timeoutSignal(REQUEST_TIMEOUT_MS, options.signal);
-  const res = await scheduleNominatim(() =>
-    fetch(url.toString(), {
-      headers: { "Accept-Language": "pt-PT" },
-      signal,
-    })
+  const res = await scheduleNominatim(
+    () =>
+      fetch(url.toString(), {
+        headers: { "Accept-Language": "pt-PT" },
+        signal,
+      }),
+    options.signal
   );
   if (!res.ok) return [];
 
