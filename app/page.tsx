@@ -225,13 +225,6 @@ export default function HomePage() {
   const registerFlip = useFlipList();
 
   const referencePoint = viewport?.center ?? mapCenter ?? searchOrigin ?? userPosition;
-  const distanceOrigin = useMemo<{ lat: number; lng: number } | null>(() => {
-    if (viewport) return { lat: viewport.center.lat, lng: viewport.center.lng };
-    if (mapCenter) return { lat: mapCenter.lat, lng: mapCenter.lng };
-    if (searchOrigin) return { lat: searchOrigin.lat, lng: searchOrigin.lng };
-    if (userPosition) return userPosition;
-    return null;
-  }, [viewport, mapCenter, searchOrigin, userPosition]);
   const { city } = useReverseGeocode(
     referencePoint?.lat ?? null,
     referencePoint?.lng ?? null
@@ -331,13 +324,7 @@ export default function HomePage() {
     });
   };
 
-  const placesWithDist = useMemo(() => {
-    if (!distanceOrigin) return places;
-    return places.map((p) => ({
-      ...p,
-      distance_m: haversineMeters(distanceOrigin, { lat: p.lat, lng: p.lng }),
-    }));
-  }, [places, distanceOrigin]);
+  const placesWithDist = places;
 
   const queryMatchedIds = useMemo(() => {
     const q = query.trim();
@@ -395,11 +382,11 @@ export default function HomePage() {
         (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-    } else if (sort === "distance" && distanceOrigin) {
+    } else if (sort === "distance" && userPosition) {
       base.sort((a, b) => (a.distance_m || 0) - (b.distance_m || 0));
     }
     return base;
-  }, [filteredList, sort, distanceOrigin, onlyPinned]);
+  }, [filteredList, sort, userPosition, onlyPinned]);
 
   const visibleSorted = useMemo(
     () => sorted.slice(0, VISIBLE_LIST_LIMIT),
@@ -440,13 +427,13 @@ export default function HomePage() {
   }, [viewport, filteredList]);
 
   const radiusFallbackCount = useMemo(() => {
-    if (!distanceOrigin) return filteredList.length;
+    if (!userPosition) return filteredList.length;
     let n = 0;
     for (const p of filteredList) {
       if (Number.isFinite(p.distance_m) && p.distance_m <= NEAR_RADIUS_M) n++;
     }
     return n;
-  }, [distanceOrigin, filteredList]);
+  }, [userPosition, filteredList]);
 
   const handlePickGeocoded = useCallback(
     (r: ForwardGeocodeResult) => {
