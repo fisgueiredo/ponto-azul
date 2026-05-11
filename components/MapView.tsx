@@ -75,7 +75,7 @@ const SATELLITE_STYLE: StyleSpecification = {
         "https://mt2.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
         "https://mt3.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
       ],
-      tileSize: 128,
+      tileSize: 256,
       maxzoom: 20,
       attribution: "&copy; Google",
     },
