@@ -1,8 +1,8 @@
 export type PinKind = "place" | "user";
 
-const PLACE_SVG = `
+const placeSvg = (fill: string) => `
 <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
-  <path d="M16 1 C 8 1 2 7 2 15 C 2 23 11 32 16 38 C 21 32 30 23 30 15 C 30 7 24 1 16 1 Z" fill="#2774AE" stroke="#fff" stroke-width="2"/>
+  <path d="M16 1 C 8 1 2 7 2 15 C 2 23 11 32 16 38 C 21 32 30 23 30 15 C 30 7 24 1 16 1 Z" fill="${fill}" stroke="#fff" stroke-width="2"/>
 </svg>`;
 
 const USER_SVG = `
@@ -12,9 +12,26 @@ const USER_SVG = `
 
 const HALO_ATTR = "data-pin-halo";
 const ACTIVE_ATTR = "data-pin-active";
+const PINNED_ATTR = "data-pin-pinned";
+const PULSE_ATTR = "data-pin-pulse";
+const SVG_ATTR = "data-pin-svg";
 
-function ensureHalo(wrap: HTMLDivElement) {
-  if (wrap.querySelector(`[${HALO_ATTR}]`)) return;
+const colorFor = (pinned: boolean) => (pinned ? "#E0A82E" : "#2774AE");
+const haloGradient = (pinned: boolean) =>
+  pinned
+    ? "radial-gradient(circle, rgba(224,168,46,0.55) 0%, rgba(224,168,46,0.15) 60%, rgba(224,168,46,0) 75%)"
+    : "radial-gradient(circle, rgba(39,116,174,0.55) 0%, rgba(39,116,174,0.15) 60%, rgba(39,116,174,0) 75%)";
+const dropShadow = (pinned: boolean) =>
+  pinned
+    ? "drop-shadow(0 8px 14px rgba(224,168,46,0.6))"
+    : "drop-shadow(0 8px 14px rgba(39,116,174,0.6))";
+
+function ensureHalo(wrap: HTMLDivElement, pinned: boolean) {
+  const existing = wrap.querySelector<HTMLDivElement>(`[${HALO_ATTR}]`);
+  if (existing) {
+    existing.style.background = haloGradient(pinned);
+    return;
+  }
   const halo = document.createElement("div");
   halo.setAttribute(HALO_ATTR, "");
   halo.style.cssText = [
@@ -24,7 +41,7 @@ function ensureHalo(wrap: HTMLDivElement) {
     "width:54px",
     "height:54px",
     "border-radius:50%",
-    "background:radial-gradient(circle, rgba(39,116,174,0.55) 0%, rgba(39,116,174,0.15) 60%, rgba(39,116,174,0) 75%)",
+    `background:${haloGradient(pinned)}`,
     "pointer-events:none",
     "z-index:-1",
     "transform:translate(-50%, -50%) scale(0.5)",
@@ -44,12 +61,13 @@ export function setPinActive(wrap: HTMLDivElement, active: boolean) {
   wrap.setAttribute(ACTIVE_ATTR, next);
   const inner = wrap.lastElementChild as HTMLDivElement | null;
   if (!inner) return;
+  const pinned = wrap.getAttribute(PINNED_ATTR) === "1";
   if (active) {
     wrap.style.zIndex = "10";
-    inner.style.filter = "drop-shadow(0 8px 14px rgba(39,116,174,0.6))";
+    inner.style.filter = dropShadow(pinned);
     inner.style.animation =
       "pinSelectIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both, pinSelectIdle 1.8s 0.45s ease-in-out infinite";
-    ensureHalo(wrap);
+    ensureHalo(wrap, pinned);
   } else {
     wrap.style.zIndex = "";
     inner.style.filter = "drop-shadow(0 2px 3px rgba(0,0,0,0.18))";
@@ -59,9 +77,25 @@ export function setPinActive(wrap: HTMLDivElement, active: boolean) {
   }
 }
 
+export function setPinPinned(wrap: HTMLDivElement, pinned: boolean) {
+  const next = pinned ? "1" : "0";
+  if (wrap.getAttribute(PINNED_ATTR) === next) return;
+  wrap.setAttribute(PINNED_ATTR, next);
+  const pulse = wrap.querySelector<HTMLSpanElement>(`[${PULSE_ATTR}]`);
+  if (pulse) pulse.style.background = colorFor(pinned);
+  const svgHost = wrap.querySelector<HTMLSpanElement>(`[${SVG_ATTR}]`);
+  if (svgHost) svgHost.innerHTML = placeSvg(colorFor(pinned));
+  if (wrap.getAttribute(ACTIVE_ATTR) === "1") {
+    const inner = wrap.lastElementChild as HTMLDivElement | null;
+    if (inner) inner.style.filter = dropShadow(pinned);
+    const halo = wrap.querySelector<HTMLDivElement>(`[${HALO_ATTR}]`);
+    if (halo) halo.style.background = haloGradient(pinned);
+  }
+}
+
 export function createPinElement(
   kind: PinKind = "place",
-  opts: { active?: boolean } = {}
+  opts: { active?: boolean; pinned?: boolean } = {}
 ): HTMLDivElement {
   const wrap = document.createElement("div");
   wrap.style.cursor = "pointer";
@@ -71,6 +105,8 @@ export function createPinElement(
   inner.style.pointerEvents = "auto";
 
   if (kind === "place") {
+    const pinned = !!opts.pinned;
+    wrap.setAttribute(PINNED_ATTR, pinned ? "1" : "0");
     inner.style.width = "32px";
     inner.style.height = "40px";
     inner.style.transformOrigin = "50% 100%";
@@ -79,8 +115,8 @@ export function createPinElement(
     inner.style.animation =
       "pinDrop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both";
     inner.innerHTML = `
-      <span style="position:absolute;left:4px;top:4px;width:24px;height:24px;border-radius:50%;background:#2774AE;opacity:.35;animation:pingPulse 1.8s ease-out infinite;display:block;pointer-events:none;"></span>
-      ${PLACE_SVG}
+      <span ${PULSE_ATTR} style="position:absolute;left:4px;top:4px;width:24px;height:24px;border-radius:50%;background:${colorFor(pinned)};opacity:.35;animation:pingPulse 1.8s ease-out infinite;display:block;pointer-events:none;"></span>
+      <span ${SVG_ATTR} style="display:block;">${placeSvg(colorFor(pinned))}</span>
     `;
   } else {
     inner.style.width = "22px";
