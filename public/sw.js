@@ -1,7 +1,9 @@
 // IMPORTANT: bump CACHE/RUNTIME version on every shell or asset-strategy change
 // so existing installs purge stale caches on activate.
-const CACHE = "ponto-azul-v8";
-const RUNTIME = "ponto-azul-runtime-v8";
+const CACHE = "ponto-azul-v9";
+const RUNTIME = "ponto-azul-runtime-v9";
+const TILES = "ponto-azul-tiles-v9";
+const TILES_MAX = 600;
 const SHELL = [
   "/",
   "/adicionar",
@@ -9,6 +11,23 @@ const SHELL = [
   "/manifest.webmanifest",
   "/icon.png",
 ];
+
+function isTileHost(hostname) {
+  return (
+    hostname.endsWith("openfreemap.org") ||
+    /^mt[0-3]\.google\.com$/.test(hostname)
+  );
+}
+
+async function trimCache(name, max) {
+  const cache = await caches.open(name);
+  const keys = await cache.keys();
+  if (keys.length <= max) return;
+  // Evict oldest entries (queue order is insertion order).
+  for (let i = 0; i < keys.length - max; i++) {
+    await cache.delete(keys[i]);
+  }
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -22,7 +41,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE && k !== RUNTIME)
+          .filter((k) => k !== CACHE && k !== RUNTIME && k !== TILES)
           .map((k) => caches.delete(k))
       )
     )
@@ -49,10 +68,35 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
+  // Cache-first for map tiles: repeat pans/zooms feel instant.
+  if (isTileHost(url.hostname)) {
+    event.respondWith(
+      caches.open(TILES).then((cache) =>
+        cache.match(req).then((cached) => {
+          if (cached) return cached;
+          // Preserve the request's original mode (often no-cors for <img>).
+          return fetch(req)
+            .then((res) => {
+              // Cache both ok responses and opaque (no-cors image) responses.
+              if (res && (res.ok || res.type === "opaque")) {
+                const copy = res.clone();
+                cache
+                  .put(req, copy)
+                  .then(() => trimCache(TILES, TILES_MAX))
+                  .catch(() => {});
+              }
+              return res;
+            })
+            .catch(() => cached || Response.error());
+        })
+      )
+    );
+    return;
+  }
+
   if (
     url.hostname.endsWith("supabase.co") ||
     url.hostname.endsWith("openstreetmap.org") ||
-    url.hostname.endsWith("openfreemap.org") ||
     url.hostname.endsWith("googleapis.com") ||
     url.hostname.endsWith("google.com")
   ) {
