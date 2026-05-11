@@ -3,13 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type Snap = "min" | "mid" | "max";
 
-const SAFE_BOTTOM_OFFSET = 56;
-
 function computeSnapHeights(
   vh: number,
   midHeight?: (vh: number) => number
 ): Record<Snap, number> {
-  const max = Math.max(360, vh - SAFE_BOTTOM_OFFSET);
+  const max = Math.max(360, Math.round(vh * 0.62));
   const mid = midHeight ? midHeight(vh) : Math.max(240, Math.round(vh * 0.32));
   return {
     min: 64,
@@ -60,6 +58,8 @@ export default function BottomSheet({
   const pendingDragHeightRef = useRef<number | null>(null);
   const cachedSnapHeightsRef = useRef<Record<Snap, number> | null>(null);
   const cachedVhRef = useRef<number>(0);
+  const tapMovedRef = useRef<boolean>(false);
+  const lastTapTimeRef = useRef<number>(0);
 
   const getSnapHeights = useCallback((): Record<Snap, number> => {
     if (typeof window === "undefined") {
@@ -113,6 +113,7 @@ export default function BottomSheet({
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     startYRef.current = e.clientY;
     startHeightRef.current = heightRef.current || height;
+    tapMovedRef.current = false;
     setTransitioning(false);
     setDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -120,6 +121,7 @@ export default function BottomSheet({
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (startYRef.current == null) return;
     const dy = startYRef.current - e.clientY;
+    if (Math.abs(dy) > 5) tapMovedRef.current = true;
     const heights = getSnapHeights();
     const next = Math.max(
       heights.min,
@@ -152,6 +154,19 @@ export default function BottomSheet({
     pendingDragHeightRef.current = null;
     setTransitioning(true);
     setDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+
+    const wasTap = !tapMovedRef.current;
+    if (wasTap) {
+      const now = Date.now();
+      if (now - lastTapTimeRef.current < 300) {
+        lastTapTimeRef.current = 0;
+        setSnap("mid");
+        return;
+      }
+      lastTapTimeRef.current = now;
+    }
+
     const heights = getSnapHeights();
     const candidates: Snap[] = ["min", "mid", "max"];
     let best: Snap = "mid";
@@ -164,7 +179,6 @@ export default function BottomSheet({
       }
     }
     setSnap(best);
-    e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
   return (
