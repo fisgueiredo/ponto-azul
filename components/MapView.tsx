@@ -401,13 +401,29 @@ function MapViewImpl({
     const map = mapRef.current;
     if (!map || !flyTo) return;
     const padding = { top: padTop, right: padRight, bottom: padBottom, left: padLeft };
+    // Lock user gestures so a lingering finger after a long-press doesn't
+    // cancel the camera animation midway.
+    map.dragPan.disable();
+    map.dragRotate.disable();
+    map.scrollZoom.disable();
+    map.touchZoomRotate.disable();
+    map.doubleClickZoom.disable();
+    const reenable = () => {
+      map.dragPan.enable();
+      map.dragRotate.enable();
+      map.scrollZoom.enable();
+      map.touchZoomRotate.enable();
+      map.doubleClickZoom.enable();
+    };
+    const duration =
+      flyTo.duration ?? (flyTo.mode === "ease" ? 600 : 520);
     if (flyTo.mode === "ease") {
       map.easeTo({
         center: [flyTo.lng, flyTo.lat],
         zoom: flyTo.zoom ?? map.getZoom(),
         bearing: 0,
         pitch: 0,
-        duration: flyTo.duration ?? 600,
+        duration,
         padding,
         essential: true,
       });
@@ -417,11 +433,16 @@ function MapViewImpl({
         zoom: flyTo.zoom ?? zoom,
         bearing: 0,
         pitch: 0,
-        duration: flyTo.duration ?? 520,
+        duration,
         padding,
         essential: true,
       });
     }
+    const t = window.setTimeout(reenable, duration + 40);
+    return () => {
+      window.clearTimeout(t);
+      reenable();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flyTo, zoom]);
 
@@ -518,25 +539,30 @@ function MapViewImpl({
             zIndex: 5,
             width: 44,
             height: 56,
-            filter: "drop-shadow(0 8px 14px rgba(39,116,174,0.5))",
-            animation: "float 2s ease-in-out infinite",
           }}
         >
-          <svg
-            width="44"
-            height="56"
-            viewBox="0 0 32 40"
-            xmlns="http://www.w3.org/2000/svg"
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              filter: "drop-shadow(0 8px 14px rgba(39,116,174,0.5))",
+              animation: "float 2s ease-in-out infinite",
+            }}
           >
-            <path
-              d="M16 1 C 8 1 2 7 2 15 C 2 23 11 32 16 38 C 21 32 30 23 30 15 C 30 7 24 1 16 1 Z"
-              fill="#2774AE"
-              stroke="#fff"
-              strokeWidth="2.2"
-            />
-            <circle cx="16" cy="11" r="2.4" fill="#fff" />
-            <path d="M12.5 17 L19.5 17 L18.2 22 L13.8 22 Z" fill="#fff" />
-          </svg>
+            <svg
+              width="44"
+              height="56"
+              viewBox="0 0 32 40"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M16 1 C 8 1 2 7 2 15 C 2 23 11 32 16 38 C 21 32 30 23 30 15 C 30 7 24 1 16 1 Z"
+                fill="#2774AE"
+                stroke="#fff"
+                strokeWidth="2"
+              />
+            </svg>
+          </div>
         </div>
       )}
     </div>
