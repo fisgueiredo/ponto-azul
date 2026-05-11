@@ -14,7 +14,7 @@ export type ForwardGeocodeResult = {
   bbox: [number, number, number, number] | null;
 };
 
-const CACHE_PREFIX = "pa:geo:";
+const CACHE_PREFIX = "pa:geo:v2:";
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const FWD_CACHE_PREFIX = "pa:geo:fwd:";
 const FWD_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
@@ -110,13 +110,20 @@ export async function reverseGeocode(
     display_name?: string;
   };
   const a = data.address ?? {};
+  // Prioritise smaller administrative units (typically the freguesia in PT)
+  // over the broader concelho/município, so a place like "Oia" wins over
+  // "Oliveira do Bairro" when the user is inside it.
   const city =
-    a.city ||
-    a.town ||
+    a.suburb ||
+    a.quarter ||
+    a.neighbourhood ||
+    a.city_district ||
+    a.hamlet ||
     a.village ||
+    a.town ||
+    a.city ||
     a.municipality ||
     a.county ||
-    a.suburb ||
     null;
 
   const street = [a.road, a.house_number].filter(Boolean).join(" ");
