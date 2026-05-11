@@ -2,7 +2,7 @@ export type PinKind = "place" | "user";
 
 const placeSvg = (fill: string) => `
 <svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
-  <path d="M16 1 C 8 1 2 7 2 15 C 2 23 11 32 16 38 C 21 32 30 23 30 15 C 30 7 24 1 16 1 Z" fill="${fill}" stroke="#fff" stroke-width="2"/>
+  <path d="M16 1 C 8 1 2 7 2 15 C 2 23 11 32 16 38 C 21 32 30 23 30 15 C 30 7 24 1 16 1 Z M16 10 A 5 5 0 1 0 16 20 A 5 5 0 1 0 16 10 Z" fill="${fill}" fill-rule="evenodd" stroke="#fff" stroke-width="2"/>
 </svg>`;
 
 const USER_SVG = `
