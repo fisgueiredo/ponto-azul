@@ -93,6 +93,56 @@ export function setPinPinned(wrap: HTMLDivElement, pinned: boolean) {
   }
 }
 
+const CLUSTER_ATTR = "data-pin-cluster";
+const CLUSTER_SVG_ATTR = "data-pin-cluster-svg";
+
+function clusterSize(count: number): { w: number; h: number } {
+  if (count < 10) return { w: 32, h: 40 };
+  if (count < 100) return { w: 38, h: 48 };
+  return { w: 44, h: 54 };
+}
+
+function clusterSvg(count: number): string {
+  return `
+<svg width="100%" height="100%" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+  <path d="M16 1 C 8 1 2 7 2 15 C 2 23 11 32 16 38 C 21 32 30 23 30 15 C 30 7 24 1 16 1 Z" fill="${colorFor(false)}" stroke="#fff" stroke-width="2"/>
+  <text x="16" y="16" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="13" font-weight="700" font-family="system-ui, -apple-system, sans-serif">${count}</text>
+</svg>`;
+}
+
+export function setClusterCount(wrap: HTMLDivElement, count: number) {
+  const inner = wrap.lastElementChild as HTMLDivElement | null;
+  if (!inner) return;
+  const { w, h } = clusterSize(count);
+  inner.style.width = `${w}px`;
+  inner.style.height = `${h}px`;
+  const svgHost = wrap.querySelector<HTMLSpanElement>(`[${CLUSTER_SVG_ATTR}]`);
+  if (svgHost) svgHost.innerHTML = clusterSvg(count);
+}
+
+export function createClusterPinElement(count: number): HTMLDivElement {
+  const wrap = document.createElement("div");
+  wrap.setAttribute(CLUSTER_ATTR, "");
+  wrap.style.cursor = "pointer";
+
+  const inner = document.createElement("div");
+  const { w, h } = clusterSize(count);
+  inner.style.position = "relative";
+  inner.style.pointerEvents = "auto";
+  inner.style.width = `${w}px`;
+  inner.style.height = `${h}px`;
+  inner.style.transformOrigin = "50% 100%";
+  inner.style.filter = "drop-shadow(0 3px 5px rgba(0,0,0,0.22))";
+  inner.style.animation = "pinDrop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both";
+  inner.innerHTML = `
+    <span style="position:absolute;left:50%;top:20%;width:50%;height:50%;border-radius:50%;background:${colorFor(false)};opacity:.28;transform:translate(-50%, -50%);animation:pingPulse 2.2s ease-out infinite;display:block;pointer-events:none;"></span>
+    <span ${CLUSTER_SVG_ATTR} style="display:block;width:100%;height:100%;">${clusterSvg(count)}</span>
+  `;
+
+  wrap.appendChild(inner);
+  return wrap;
+}
+
 export function createPinElement(
   kind: PinKind = "place",
   opts: { active?: boolean; pinned?: boolean } = {}

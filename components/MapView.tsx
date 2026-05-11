@@ -7,8 +7,17 @@ import maplibregl, {
   setMaxParallelImageRequests,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import Supercluster from "supercluster";
 import { Place } from "@/lib/supabase";
-import { createPinElement, setPinActive, setPinPinned } from "./PinElement";
+import {
+  createClusterPinElement,
+  createPinElement,
+  setClusterCount,
+  setPinActive,
+  setPinPinned,
+} from "./PinElement";
+
+type PlaceProps = { cluster: false; place: Place };
 
 // Bump the default (16) to fan out tile requests faster on initial map paint.
 setMaxParallelImageRequests(32);
@@ -121,6 +130,10 @@ function MapViewImpl({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
+  const indexRef = useRef<Supercluster<PlaceProps> | null>(null);
+  const reconcileRef = useRef<() => void>(() => {});
+  const highlightIdRef = useRef<string | null>(highlightId);
+  highlightIdRef.current = highlightId;
   const userMarkerRef = useRef<Marker | null>(null);
   const dragMarkerRef = useRef<Marker | null>(null);
   const pressMarkerRef = useRef<Marker | null>(null);
@@ -165,6 +178,9 @@ function MapViewImpl({
       });
     };
     map.on("moveend", handleMoveEnd);
+
+    const handleReconcile = () => reconcileRef.current();
+    map.on("moveend", handleReconcile);
 
     const VIEWPORT_THROTTLE_MS = 150;
     let viewRaf = 0;
@@ -306,6 +322,7 @@ function MapViewImpl({
       if (viewTimer) clearTimeout(viewTimer);
       if (rotateRaf) cancelAnimationFrame(rotateRaf);
       map.off("moveend", handleMoveEnd);
+      map.off("moveend", handleReconcile);
       map.off("move", scheduleViewport);
       map.off("moveend", emitViewport);
       map.off("rotate", handleRotate);
@@ -338,43 +355,124 @@ function MapViewImpl({
   }, [mapStyle]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const existing = markersRef.current;
-    const seen = new Set<string>();
-    for (const p of places) {
-      seen.add(p.id);
-      const prev = existing.get(p.id);
-      if (prev) {
-        const ll = prev.getLngLat();
-        if (ll.lng !== p.lng || ll.lat !== p.lat) {
-          prev.setLngLat([p.lng, p.lat]);
+    reconcileRef.current = () => {
+      const map = mapRef.current;
+      const idx = indexRef.current;
+      if (!map || !idx) return;
+      const b = map.getBounds();
+      const bbox: [number, number, number, number] = [
+        b.getWest(),
+        b.getSouth(),
+        b.getEast(),
+        b.getNorth(),
+      ];
+      const zoom = Math.floor(map.getZoom());
+      const features = idx.getClusters(bbox, zoom);
+      const existing = markersRef.current;
+      const seen = new Set<string>();
+      for (const f of features) {
+        const [lng, lat] = f.geometry.coordinates;
+        const props = f.properties;
+        if (props && (props as { cluster?: boolean }).cluster) {
+          const clusterProps = props as unknown as {
+            cluster: true;
+            cluster_id: number;
+            point_count: number;
+          };
+          const key = `cluster:${clusterProps.cluster_id}`;
+          seen.add(key);
+          const count = clusterProps.point_count;
+          const prev = existing.get(key);
+          if (prev) {
+            prev.setLngLat([lng, lat]);
+            setClusterCount(prev.getElement() as HTMLDivElement, count);
+            continue;
+          }
+          const el = createClusterPinElement(count);
+          const cid = clusterProps.cluster_id;
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const expansionZoom = Math.min(idx.getClusterExpansionZoom(cid), 20);
+            map.easeTo({
+              center: [lng, lat],
+              zoom: expansionZoom,
+              duration: 450,
+              essential: true,
+            });
+          });
+          const marker = new maplibregl.Marker({
+            element: el,
+            anchor: "bottom",
+            offset: [0, 2],
+          })
+            .setLngLat([lng, lat])
+            .addTo(map);
+          existing.set(key, marker);
+        } else {
+          const placeProps = props as unknown as PlaceProps;
+          const place = placeProps.place;
+          const key = `place:${place.id}`;
+          seen.add(key);
+          const prev = existing.get(key);
+          if (prev) {
+            const ll = prev.getLngLat();
+            if (ll.lng !== lng || ll.lat !== lat) {
+              prev.setLngLat([lng, lat]);
+            }
+            setPinActive(
+              prev.getElement() as HTMLDivElement,
+              place.id === highlightIdRef.current
+            );
+            setPinPinned(prev.getElement() as HTMLDivElement, !!place.pinned);
+            continue;
+          }
+          const el = createPinElement("place", {
+            active: place.id === highlightIdRef.current,
+            pinned: !!place.pinned,
+          });
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            onPinClickRef.current?.(place);
+          });
+          const marker = new maplibregl.Marker({
+            element: el,
+            anchor: "bottom",
+            offset: [0, 2],
+          })
+            .setLngLat([lng, lat])
+            .addTo(map);
+          existing.set(key, marker);
         }
-        setPinActive(prev.getElement() as HTMLDivElement, p.id === highlightId);
-        setPinPinned(prev.getElement() as HTMLDivElement, !!p.pinned);
-        continue;
       }
-      const el = createPinElement("place", { active: p.id === highlightId, pinned: !!p.pinned });
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        onPinClickRef.current?.(p);
-      });
-      const marker = new maplibregl.Marker({
-        element: el,
-        anchor: "bottom",
-        offset: [0, 2],
-      })
-        .setLngLat([p.lng, p.lat])
-        .addTo(map);
-      existing.set(p.id, marker);
-    }
-    for (const [id, marker] of existing) {
-      if (!seen.has(id)) {
-        marker.remove();
-        existing.delete(id);
+      for (const [key, marker] of existing) {
+        if (!seen.has(key)) {
+          marker.remove();
+          existing.delete(key);
+        }
       }
-    }
-  }, [places, highlightId]);
+    };
+  });
+
+  useEffect(() => {
+    const idx = new Supercluster<PlaceProps>({
+      radius: 60,
+      maxZoom: 16,
+      minPoints: 2,
+    });
+    idx.load(
+      places.map((p) => ({
+        type: "Feature" as const,
+        properties: { cluster: false as const, place: p },
+        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+      }))
+    );
+    indexRef.current = idx;
+    reconcileRef.current();
+  }, [places]);
+
+  useEffect(() => {
+    reconcileRef.current();
+  }, [highlightId]);
 
   useEffect(() => {
     const map = mapRef.current;
