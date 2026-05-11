@@ -53,6 +53,10 @@ export default function RootLayout({
       <head>
         <ThemeScript />
         <link rel="preconnect" href="https://tiles.openfreemap.org" crossOrigin="" />
+        <link rel="preconnect" href="https://mt0.google.com" crossOrigin="" />
+        <link rel="preconnect" href="https://mt1.google.com" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://mt2.google.com" />
+        <link rel="dns-prefetch" href="https://mt3.google.com" />
         <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org" />
         {process.env.NEXT_PUBLIC_SUPABASE_URL && (
           <link

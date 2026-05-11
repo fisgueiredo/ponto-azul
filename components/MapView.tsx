@@ -1,9 +1,17 @@
 "use client";
 import { memo, useEffect, useRef } from "react";
-import maplibregl, { Map as MLMap, Marker, StyleSpecification } from "maplibre-gl";
+import maplibregl, {
+  Map as MLMap,
+  Marker,
+  StyleSpecification,
+  setMaxParallelImageRequests,
+} from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Place } from "@/lib/supabase";
 import { createPinElement, setPinActive } from "./PinElement";
+
+// Bump the default (16) to fan out tile requests faster on initial map paint.
+setMaxParallelImageRequests(32);
 
 type LatLng = { lat: number; lng: number };
 
@@ -58,16 +66,23 @@ const SATELLITE_STYLE: StyleSpecification = {
         "https://mt2.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
         "https://mt3.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
       ],
-      tileSize: 128,
-      maxzoom: 22,
+      tileSize: 256,
+      maxzoom: 20,
       attribution: "&copy; Google",
     },
   },
   layers: [
+    // Background fill avoids a flash of empty canvas while tiles load.
+    {
+      id: "satellite-bg",
+      type: "background",
+      paint: { "background-color": "#1b1f26" },
+    },
     {
       id: "google-satellite",
       type: "raster",
       source: "google-satellite",
+      paint: { "raster-fade-duration": 0 },
     },
   ],
 };
@@ -135,6 +150,8 @@ function MapViewImpl({
       zoom,
       interactive,
       attributionControl: showAttribution ? {} : false,
+      fadeDuration: 0,
+      refreshExpiredTiles: false,
     });
     mapRef.current = map;
     const markers = markersRef.current;
