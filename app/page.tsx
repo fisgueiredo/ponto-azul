@@ -226,10 +226,12 @@ export default function HomePage() {
 
   const referencePoint = viewport?.center ?? mapCenter ?? searchOrigin ?? userPosition;
   const distanceOrigin = useMemo<{ lat: number; lng: number } | null>(() => {
+    if (viewport) return { lat: viewport.center.lat, lng: viewport.center.lng };
+    if (mapCenter) return { lat: mapCenter.lat, lng: mapCenter.lng };
     if (searchOrigin) return { lat: searchOrigin.lat, lng: searchOrigin.lng };
     if (userPosition) return userPosition;
     return null;
-  }, [searchOrigin, userPosition]);
+  }, [viewport, mapCenter, searchOrigin, userPosition]);
   const { city } = useReverseGeocode(
     referencePoint?.lat ?? null,
     referencePoint?.lng ?? null
@@ -329,8 +331,6 @@ export default function HomePage() {
     });
   };
 
-  // Distance is computed against a STABLE origin (search target or user position),
-  // not the moving viewport center. This keeps the home page snappy during panning.
   const placesWithDist = useMemo(() => {
     if (!distanceOrigin) return places;
     return places.map((p) => ({
