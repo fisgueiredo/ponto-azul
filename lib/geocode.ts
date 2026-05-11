@@ -1,3 +1,5 @@
+import { haversineMeters } from "@/lib/format";
+
 type ReverseGeocodeResult = {
   city: string | null;
   address: string | null;
@@ -171,16 +173,23 @@ export async function forwardGeocode(
     }
   }
 
+  const requestedLimit = options.limit ?? 6;
+  // Fetch a wider candidate pool so we can re-rank by proximity client-side
+  // and still return a healthy number of nearby results.
+  const fetchLimit = Math.max(requestedLimit, 10);
+
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("q", trimmed);
   url.searchParams.set("accept-language", "pt-PT");
   url.searchParams.set("countrycodes", "pt");
-  url.searchParams.set("limit", String(options.limit ?? 6));
+  url.searchParams.set("limit", String(fetchLimit));
   url.searchParams.set("addressdetails", "0");
 
   if (options.nearLat != null && options.nearLng != null) {
-    const bias = 1.5;
+    // Tight viewbox (~55 km) so Nominatim already biases towards local
+    // results; `bounded=0` keeps far matches available as a fallback.
+    const bias = 0.5;
     const w = options.nearLng - bias;
     const e = options.nearLng + bias;
     const n = options.nearLat + bias;
@@ -239,15 +248,29 @@ export async function forwardGeocode(
     })
     .filter((r): r is ForwardGeocodeResult => r !== null);
 
+  // Re-rank by distance to the anchor so generic queries ("hospital") return
+  // the closest matches first, with far hits relegated to the bottom of the
+  // dropdown rather than removed entirely.
+  if (options.nearLat != null && options.nearLng != null) {
+    const origin = { lat: options.nearLat, lng: options.nearLng };
+    results.sort(
+      (a, b) =>
+        haversineMeters(origin, { lat: a.lat, lng: a.lng }) -
+        haversineMeters(origin, { lat: b.lat, lng: b.lng })
+    );
+  }
+
+  const trimmedResults = results.slice(0, requestedLimit);
+
   if (typeof window !== "undefined") {
     try {
       window.localStorage.setItem(
         key,
-        JSON.stringify({ t: Date.now(), results })
+        JSON.stringify({ t: Date.now(), results: trimmedResults })
       );
     } catch {
       // ignore quota errors
     }
   }
-  return results;
+  return trimmedResults;
 }

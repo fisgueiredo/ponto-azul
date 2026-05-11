@@ -225,13 +225,17 @@ export default function HomePage() {
   const registerFlip = useFlipList();
 
   const referencePoint = viewport?.center ?? mapCenter ?? searchOrigin ?? userPosition;
+  // GPS-first anchor for forward-geocode bias, so searches like "hospital"
+  // return matches near the phone (not near whatever the map is showing).
+  const searchAnchor =
+    userPosition ?? searchOrigin ?? mapCenter ?? viewport?.center ?? null;
   const { city } = useReverseGeocode(
     referencePoint?.lat ?? null,
     referencePoint?.lng ?? null
   );
   const { results: geoResults, loading: geoLoading } = useForwardGeocode(query, {
-    nearLat: referencePoint?.lat ?? null,
-    nearLng: referencePoint?.lng ?? null,
+    nearLat: searchAnchor?.lat ?? null,
+    nearLng: searchAnchor?.lng ?? null,
   });
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const blurTimerRef = useRef<number | null>(null);
@@ -336,21 +340,47 @@ export default function HomePage() {
     }
     if (geoResults.length > 0) {
       for (const r of geoResults) {
-        if (!r.bbox) continue;
-        const [latS, latN, lonW, lonE] = r.bbox;
-        const dLat = latN - latS;
-        const dLng = lonE - lonW;
-        if (!Number.isFinite(dLat) || !Number.isFinite(dLng)) continue;
-        if (dLat > 1.5 || dLng > 1.5) continue;
-        for (const p of placesWithDist) {
-          if (ids.has(p.id)) continue;
+        const bbox = r.bbox;
+        let usedBbox = false;
+        if (bbox) {
+          const [latS, latN, lonW, lonE] = bbox;
+          const dLat = latN - latS;
+          const dLng = lonE - lonW;
+          // 2.5° cap covers PT districts (Aveiro, Coimbra…) while still
+          // rejecting country-sized bboxes like "Portugal".
           if (
-            p.lat >= latS &&
-            p.lat <= latN &&
-            p.lng >= lonW &&
-            p.lng <= lonE
+            Number.isFinite(dLat) &&
+            Number.isFinite(dLng) &&
+            dLat <= 2.5 &&
+            dLng <= 2.5
           ) {
-            ids.add(p.id);
+            usedBbox = true;
+            for (const p of placesWithDist) {
+              if (ids.has(p.id)) continue;
+              if (
+                p.lat >= latS &&
+                p.lat <= latN &&
+                p.lng >= lonW &&
+                p.lng <= lonE
+              ) {
+                ids.add(p.id);
+              }
+            }
+          }
+        }
+        if (!usedBbox) {
+          // No usable bbox (e.g. a small freguesia returned as a point) —
+          // fall back to a 5 km radius around the result centre.
+          for (const p of placesWithDist) {
+            if (ids.has(p.id)) continue;
+            if (
+              haversineMeters(
+                { lat: r.lat, lng: r.lng },
+                { lat: p.lat, lng: p.lng }
+              ) <= 5000
+            ) {
+              ids.add(p.id);
+            }
           }
         }
       }
