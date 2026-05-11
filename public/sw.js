@@ -1,8 +1,8 @@
 // IMPORTANT: bump CACHE/RUNTIME version on every shell or asset-strategy change
 // so existing installs purge stale caches on activate.
-const CACHE = "ponto-azul-v9";
-const RUNTIME = "ponto-azul-runtime-v9";
-const TILES = "ponto-azul-tiles-v9";
+const CACHE = "ponto-azul-v10";
+const RUNTIME = "ponto-azul-runtime-v10";
+const TILES = "ponto-azul-tiles-v10";
 const TILES_MAX = 600;
 const SHELL = [
   "/",

@@ -271,13 +271,6 @@ function MapViewImpl({
       spawnPulse(e.point.x, e.point.y);
       pressTimer = setTimeout(() => {
         if (pressOrigin) {
-          if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-            try {
-              navigator.vibrate(20);
-            } catch {
-              // ignore
-            }
-          }
           onLongPressRef.current?.({
             lat: pressOrigin.lat,
             lng: pressOrigin.lng,

@@ -298,6 +298,15 @@ export default function HomePage() {
 
   const startAdding = (pos: { lat: number; lng: number }) => {
     if (adding) return;
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try {
+        // Strong double-tap pattern; perceptible even when the browser
+        // de-duplicates short single pulses.
+        navigator.vibrate([35, 30, 55]);
+      } catch {
+        // ignore
+      }
+    }
     setSelectedId(null);
     setSortOpen(false);
     setLayersOpen(false);
@@ -495,7 +504,9 @@ export default function HomePage() {
         highlightId={selectedId}
         centerPin={!!adding}
         pressFeedback={pressFeedback}
-        viewportPadding={adding ? { bottom: sheetHeight } : undefined}
+        viewportPadding={
+          adding ? { top: 160, bottom: sheetHeight } : undefined
+        }
         onPinClick={(p) => {
           if (adding) return;
           router.push(`/lugar/${p.id}`);
