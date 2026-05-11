@@ -1,7 +1,7 @@
 // IMPORTANT: bump CACHE/RUNTIME version on every shell or asset-strategy change
 // so existing installs purge stale caches on activate.
-const CACHE = "ponto-azul-v7";
-const RUNTIME = "ponto-azul-runtime-v7";
+const CACHE = "ponto-azul-v8";
+const RUNTIME = "ponto-azul-runtime-v8";
 const SHELL = [
   "/",
   "/adicionar",
