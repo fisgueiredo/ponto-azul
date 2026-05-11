@@ -411,6 +411,11 @@ export default function HomePage() {
     [placesWithDist]
   );
 
+  const mapPlaces = useMemo(
+    () => (onlyPinned ? places.filter((p) => p.pinned) : places),
+    [places, onlyPinned]
+  );
+
   const NEAR_RADIUS_M = 5000;
 
   // Single-pass viewport count: visible (in bounds) + nearby (in expanded bounds only).
@@ -495,7 +500,7 @@ export default function HomePage() {
       }}
     >
       <MapView
-        places={places}
+        places={mapPlaces}
         userPosition={userPosition}
         initialCenter={restoredCenter ?? userPosition}
         flyTo={flyTo}
