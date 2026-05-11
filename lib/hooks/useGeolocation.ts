@@ -100,6 +100,13 @@ export function useGeolocation(
       }
     };
 
+    // Start with a high-accuracy fix so we centre the map precisely, then
+    // downgrade to network-based fixes — they arrive faster, drain less
+    // battery, and the ~30-100 m precision is plenty for showing distances
+    // and "lugares perto".
+    let highAccuracyDone = false;
+    let currentOnError: ((err: GeolocationPositionError) => void) | null = null;
+
     const onSuccess = (pos: GeolocationPosition) => {
       if (cancelled) return;
       retry.attempt = 0;
@@ -119,13 +126,25 @@ export function useGeolocation(
         accuracy: next.accuracy,
         ts: Date.now(),
       });
+
+      if (watch && !highAccuracyDone && currentOnError) {
+        highAccuracyDone = true;
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+        }
+        watchId = navigator.geolocation.watchPosition(onSuccess, currentOnError, {
+          enableHighAccuracy: false,
+          timeout: 30000,
+          maximumAge: 10 * 60 * 1000,
+        });
+      }
     };
 
     const start = () => {
       if (cancelled) return;
       setState((s) => ({ ...s, loading: true, error: null }));
       const options: PositionOptions = {
-        enableHighAccuracy: true,
+        enableHighAccuracy: !highAccuracyDone,
         timeout: 15000,
         maximumAge: 5 * 60 * 1000,
       };
@@ -174,6 +193,7 @@ export function useGeolocation(
           }
         }, delay);
       };
+      currentOnError = onError;
 
       if (watch) {
         watchId = navigator.geolocation.watchPosition(
