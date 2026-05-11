@@ -1,7 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, supabaseConfigured, Place } from "@/lib/supabase";
-import { haversineMeters } from "@/lib/format";
 
 export const PLACES_CACHE_KEY = "pa:places:v2";
 export const PLACES_CACHE_META_KEY = "pa:places:v2:meta";
@@ -86,34 +85,15 @@ function placesIdentical(a: StoredPlace[], b: StoredPlace[]): boolean {
   return true;
 }
 
-function withDistance(
-  base: StoredPlace[],
-  userLat: number | null | undefined,
-  userLng: number | null | undefined
-): Place[] {
-  if (userLat == null || userLng == null) {
-    const out = new Array<Place>(base.length);
-    for (let i = 0; i < base.length; i++) {
-      out[i] = { ...base[i], distance_m: Number.NaN };
-    }
-    return out;
-  }
-  const u = { lat: userLat, lng: userLng };
+function promote(base: StoredPlace[]): Place[] {
   const out = new Array<Place>(base.length);
   for (let i = 0; i < base.length; i++) {
-    const p = base[i];
-    out[i] = {
-      ...p,
-      distance_m: haversineMeters(u, { lat: p.lat, lng: p.lng }),
-    };
+    out[i] = { ...base[i], distance_m: Number.NaN };
   }
   return out;
 }
 
-export function usePlaces({
-  userLat,
-  userLng,
-}: { userLat?: number | null; userLng?: number | null } = {}) {
+export function usePlaces() {
   const [base, setBase] = useState<StoredPlace[] | null>(() => readCache());
   const [loading, setLoading] = useState<boolean>(base == null);
   const [error, setError] = useState<string | null>(null);
@@ -162,10 +142,7 @@ export function usePlaces({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const places = useMemo(
-    () => withDistance(base ?? [], userLat, userLng),
-    [base, userLat, userLng]
-  );
+  const places = useMemo(() => promote(base ?? []), [base]);
 
   return {
     places,
