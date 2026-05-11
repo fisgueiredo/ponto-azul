@@ -1,8 +1,8 @@
 // IMPORTANT: bump CACHE/RUNTIME version on every shell or asset-strategy change
 // so existing installs purge stale caches on activate.
-const CACHE = "ponto-azul-v10";
-const RUNTIME = "ponto-azul-runtime-v10";
-const TILES = "ponto-azul-tiles-v10";
+const CACHE = "ponto-azul-v11";
+const RUNTIME = "ponto-azul-runtime-v11";
+const TILES = "ponto-azul-tiles-v11";
 const TILES_MAX = 600;
 const SHELL = [
   "/",
@@ -68,16 +68,18 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  // Cache-first for map tiles: repeat pans/zooms feel instant.
+  // Map tiles:
+  //  - Vector tiles & style JSON from openfreemap → stale-while-revalidate,
+  //    so panning feels instant but content stays fresh.
+  //  - Raster tiles from Google satellite → cache-first (immutable per z/x/y),
+  //    no point refetching.
   if (isTileHost(url.hostname)) {
+    const isVector = url.hostname.endsWith("openfreemap.org");
     event.respondWith(
       caches.open(TILES).then((cache) =>
         cache.match(req).then((cached) => {
-          if (cached) return cached;
-          // Preserve the request's original mode (often no-cors for <img>).
-          return fetch(req)
+          const fromNetwork = fetch(req)
             .then((res) => {
-              // Cache both ok responses and opaque (no-cors image) responses.
               if (res && (res.ok || res.type === "opaque")) {
                 const copy = res.clone();
                 cache
@@ -88,6 +90,11 @@ self.addEventListener("fetch", (event) => {
               return res;
             })
             .catch(() => cached || Response.error());
+          if (!cached) return fromNetwork;
+          if (!isVector) return cached;
+          // Vector: serve cached immediately, let the network refresh run.
+          fromNetwork.catch(() => {});
+          return cached;
         })
       )
     );

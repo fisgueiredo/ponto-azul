@@ -46,8 +46,17 @@ export function useFlipList() {
     prevPositions.current = next;
   });
 
-  const register = useCallback(
-    (id: string) => (el: HTMLElement | null) => {
+  // Cache the per-id ref callback so `register(id)` returns a stable reference
+  // across renders — otherwise consumers wrapped in React.memo would always
+  // see a "new" flipRef prop and bail out of memoization.
+  const callbackCache = useRef<Map<string, (el: HTMLElement | null) => void>>(
+    new Map()
+  );
+
+  const register = useCallback((id: string) => {
+    const cached = callbackCache.current.get(id);
+    if (cached) return cached;
+    const cb = (el: HTMLElement | null) => {
       if (el) {
         refs.current.set(id, el);
       } else {
@@ -55,10 +64,12 @@ export function useFlipList() {
         prevPositions.current.delete(id);
         running.current.get(id)?.cancel();
         running.current.delete(id);
+        callbackCache.current.delete(id);
       }
-    },
-    []
-  );
+    };
+    callbackCache.current.set(id, cb);
+    return cb;
+  }, []);
 
   return register;
 }

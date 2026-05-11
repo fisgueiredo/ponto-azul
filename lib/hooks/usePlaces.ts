@@ -2,14 +2,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, supabaseConfigured, Place } from "@/lib/supabase";
 
-export const PLACES_CACHE_KEY = "pa:places:v2";
-export const PLACES_CACHE_META_KEY = "pa:places:v2:meta";
+export const PLACES_CACHE_KEY = "pa:places:v3";
+export const PLACES_CACHE_META_KEY = "pa:places:v3:meta";
 const FRESH_TTL_MS = 30_000;
 
+// Lightweight shape used by the homepage list — `description` is fetched
+// on-demand in usePlace() so we don't pay for it on the list payload.
 type StoredPlace = {
   id: string;
   title: string;
-  description: string | null;
   lat: number;
   lng: number;
   spots: number;
@@ -72,7 +73,6 @@ function placesIdentical(a: StoredPlace[], b: StoredPlace[]): boolean {
     if (
       x.id !== y.id ||
       x.title !== y.title ||
-      x.description !== y.description ||
       x.lat !== y.lat ||
       x.lng !== y.lng ||
       x.spots !== y.spots ||
@@ -88,7 +88,7 @@ function placesIdentical(a: StoredPlace[], b: StoredPlace[]): boolean {
 function promote(base: StoredPlace[]): Place[] {
   const out = new Array<Place>(base.length);
   for (let i = 0; i < base.length; i++) {
-    out[i] = { ...base[i], distance_m: Number.NaN };
+    out[i] = { ...base[i], description: null, distance_m: Number.NaN };
   }
   return out;
 }
@@ -110,7 +110,7 @@ export function usePlaces() {
       setError(null);
       const { data, error } = await supabase!
         .from("places_with_coords")
-        .select("id, title, description, lat, lng, spots, pinned, created_at")
+        .select("id, title, lat, lng, spots, pinned, created_at")
         .order("created_at", { ascending: false });
       if (error) {
         setError(error.message);
@@ -162,7 +162,7 @@ export function usePlace(id: string | null | undefined) {
   }, [id]);
 
   const [place, setPlace] = useState<Place | null>(
-    cached ? { ...cached, distance_m: Number.NaN } : null
+    cached ? { ...cached, description: null, distance_m: Number.NaN } : null
   );
   const [loading, setLoading] = useState<boolean>(!cached);
   const [error, setError] = useState<string | null>(null);
