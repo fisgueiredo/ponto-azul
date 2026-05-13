@@ -30,6 +30,17 @@ Não criar PRs em qualquer outro caso sem o utilizador pedir.
 Projecto Supabase: `nmhqyrqdzmfljcpwjyob` (Ponto Azul).
 Migrações DDL via `mcp__02baf33f-368f-4616-8d0c-c7c40833df4d__apply_migration`. Esquema actual em `_design/spec.md` mais a coluna `pinned` e a RPC `toggle_pinned`.
 
+### Advisor `rls_disabled_in_public` em `public.spatial_ref_sys` — não corrigível via MCP
+
+A Supabase manda e-mails periódicos a dizer que a tabela `public.spatial_ref_sys` tem RLS desactivada. Não tentar corrigir a partir daqui — já se confirmou que **nenhum caminho SQL via MCP funciona**:
+
+- `ALTER TABLE public.spatial_ref_sys ENABLE ROW LEVEL SECURITY` → `42501: must be owner of table spatial_ref_sys`. A tabela pertence a `supabase_admin`, o `postgres` não a consegue alterar.
+- `ALTER EXTENSION postgis SET SCHEMA extensions` → `0A000: extension "postgis" does not support SET SCHEMA`. PostGIS não suporta esta operação (é uma limitação upstream).
+- `DROP EXTENSION postgis CASCADE; CREATE EXTENSION postgis WITH SCHEMA extensions;` → também bloqueado: a extensão pertence a `supabase_admin` e o `postgres` não a consegue dropar.
+- `REVOKE ... FROM anon, authenticated` em `spatial_ref_sys` → no-op silencioso, porque os grants foram dados por `supabase_admin` e o `postgres` não os pode revogar.
+
+A única forma de tirar isto seria via dashboard da Supabase (que opera como `supabase_admin`) ou ticket de support. O conteúdo de `spatial_ref_sys` são definições de SRID do PostGIS (dados de referência públicos, idênticos em todas as instalações), não dados do utilizador.
+
 ## Verificação antes de pedir merge
 
 - `npx --no-install tsc --noEmit`
