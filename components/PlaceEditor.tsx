@@ -582,6 +582,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
               }}
             >
               <label
+                htmlFor="editor-title-input"
                 style={{
                   fontSize: 12,
                   color: "var(--muted)",
@@ -603,6 +604,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
               </span>
             </div>
             <input
+              id="editor-title-input"
               type="text"
               placeholder="Ex.: Praça do Município, entrada norte"
               value={title}
@@ -622,6 +624,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
 
           <div style={{ marginBottom: 14 }}>
             <label
+              htmlFor="editor-desc-input"
               style={{
                 fontSize: 12,
                 color: "var(--muted)",
@@ -644,6 +647,7 @@ export default function PlaceEditor({ mode, initial }: Props) {
               </span>
             </label>
             <textarea
+              id="editor-desc-input"
               placeholder="Detalhes úteis: piso, rebaixe de passeio, horário, sinalização…"
               value={description}
               onChange={(e) => setDescription(e.target.value.slice(0, 400))}
