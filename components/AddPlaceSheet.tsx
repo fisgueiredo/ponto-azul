@@ -11,6 +11,7 @@ import {
 } from "@/components/Icons";
 import BottomSheet from "@/components/BottomSheet";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
+import { invalidatePlacesCache } from "@/lib/hooks/usePlaces";
 
 const MIN_SPOTS = 1;
 const MAX_SPOTS = 20;
@@ -65,11 +66,7 @@ export default function AddPlaceSheet({
       return;
     }
     setDone(true);
-    try {
-      window.localStorage.removeItem("pa:places:v2");
-    } catch {
-      // ignore
-    }
+    invalidatePlacesCache();
     setTimeout(() => onSubmitted(data as string), 480);
   };
 
