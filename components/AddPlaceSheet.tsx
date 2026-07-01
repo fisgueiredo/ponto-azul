@@ -11,6 +11,7 @@ import {
 } from "@/components/Icons";
 import BottomSheet from "@/components/BottomSheet";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
+import { invalidatePlacesCache } from "@/lib/hooks/usePlaces";
 
 const MIN_SPOTS = 1;
 const MAX_SPOTS = 20;
@@ -65,11 +66,7 @@ export default function AddPlaceSheet({
       return;
     }
     setDone(true);
-    try {
-      window.localStorage.removeItem("pa:places:v2");
-    } catch {
-      // ignore
-    }
+    invalidatePlacesCache();
     setTimeout(() => onSubmitted(data as string), 480);
   };
 
@@ -252,6 +249,7 @@ export default function AddPlaceSheet({
               }}
             >
               <label
+                htmlFor="add-title-input"
                 style={{
                   fontSize: 12,
                   color: "var(--muted)",
@@ -273,6 +271,7 @@ export default function AddPlaceSheet({
               </span>
             </div>
             <input
+              id="add-title-input"
               type="text"
               placeholder="Ex.: Praça do Município, entrada norte"
               value={title}
@@ -292,6 +291,7 @@ export default function AddPlaceSheet({
 
           <div style={{ marginBottom: 14 }}>
             <label
+              htmlFor="add-desc-input"
               style={{
                 fontSize: 12,
                 color: "var(--muted)",
@@ -314,6 +314,7 @@ export default function AddPlaceSheet({
               </span>
             </label>
             <textarea
+              id="add-desc-input"
               placeholder="Detalhes úteis: piso, rebaixe de passeio, horário, sinalização…"
               value={description}
               onChange={(e) => setDescription(e.target.value.slice(0, 400))}

@@ -156,11 +156,7 @@ export default function PlaceDetailPage() {
       if (typeof result === "boolean") {
         setPinnedOverride(result);
       }
-      try {
-        window.localStorage.removeItem("pa:places:v2");
-      } catch {
-        // ignore
-      }
+      invalidatePlacesCache();
     } catch (e: unknown) {
       setPinnedOverride(!next);
       const msg = e instanceof Error ? e.message : "Erro ao guardar";
